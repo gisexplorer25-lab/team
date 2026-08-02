@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>سجلّ حضور فرق الإرشاد</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2a4636">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="حضور الإرشاد">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c2b2a;
+    --paper:#f2efe6;
+    --paper-2:#e7e2d3;
+    --line:#c9c2ab;
+    --green:#3c5f4a;
+    --green-deep:#2a4636;
+    --amber:#c1793a;
+    --red:#a4402f;
+    --radius: 10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    min-height:100vh;
+    background-image:linear-gradient(var(--paper-2) 1px, transparent 1px);
+    background-size: 100% 42px;
+    background-attachment:fixed;
+  }
+  .display{font-family:'Cairo', sans-serif;}
+  header.top{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 28px;border-bottom:2px solid var(--ink);
+    background:var(--paper);position:sticky;top:0;z-index:20;
+  }
+  header.top h1{
+    font-size:20px;margin:0;font-weight:800;letter-spacing:.3px;
+    display:flex;align-items:center;gap:10px;
+  }
+  header.top h1 .stamp{
+    width:26px;height:26px;border-radius:50%;border:2.5px solid var(--green-deep);
+    display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--green-deep);
+    transform:rotate(-8deg);
+  }
+  .backbtn{
+    border:1.5px solid var(--ink);background:transparent;color:var(--ink);
+    padding:8px 16px;border-radius:999px;font-family:inherit;cursor:pointer;font-size:14px;
+    display:none;
+  }
+  .backbtn.show{display:inline-block;}
+  main{max-width:960px;margin:0 auto;padding:34px 22px 80px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  #view-home .lede{margin:0 0 26px;font-size:15px;color:#4a4a42;max-width:560px;}
+  .section-label{font-family:'Cairo';font-size:12.5px;font-weight:700;color:#6c665a;margin:0 0 12px;letter-spacing:.3px;}
+  .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;}
+  .team-card{
+    background:var(--paper);border:1.5px solid var(--ink);border-radius:var(--radius);
+    padding:20px 18px;cursor:pointer;text-align:right;position:relative;overflow:hidden;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .team-card:hover{transform:translateY(-3px);box-shadow:4px 4px 0 var(--ink);}
+  .team-card .idx{font-size:12px;color:#8a8374;font-family:'Cairo';font-weight:700;}
+  .team-card .name{font-family:'Cairo';font-weight:800;font-size:19px;margin:6px 0 2px;}
+  .team-card .sub{font-size:12.5px;color:#6c665a;}
+
+  .admin-entry{
+    margin-top:36px;border:1.5px dashed var(--ink);border-radius:var(--radius);
+    padding:20px 22px;display:flex;align-items:center;justify-content:space-between;gap:14px;
+    cursor:pointer;background:var(--paper-2);flex-wrap:wrap;
+  }
+  .admin-entry:hover{background:#ddd6c1;}
+  .admin-entry .t{font-family:'Cairo';font-weight:800;font-size:16px;}
+  .admin-entry .s{font-size:12.5px;color:#6c665a;}
+
+  .team-hero{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
+  .team-hero h2{font-family:'Cairo';font-size:26px;margin:0;font-weight:800;}
+  .team-hero .today{font-size:13px;color:#6c665a;}
+
+  .tabs{display:flex;gap:8px;border-bottom:2px solid var(--ink);margin-bottom:22px;flex-wrap:wrap;}
+  .tab-btn{
+    font-family:'Cairo';font-weight:700;font-size:14px;background:transparent;border:none;
+    padding:10px 16px;cursor:pointer;color:#6c665a;border-radius:8px 8px 0 0;position:relative;top:2px;
+  }
+  .tab-btn.active{color:var(--ink);background:var(--paper-2);border:2px solid var(--ink);border-bottom-color:var(--paper-2);}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .card{
+    background:var(--paper);border:1.5px solid var(--ink);border-radius:var(--radius);
+    padding:22px;margin-bottom:18px;
+  }
+  .card h3{margin:0 0 14px;font-family:'Cairo';font-size:16px;}
+  label{display:block;font-size:13px;margin:12px 0 6px;color:#4a4a42;}
+  input[type=text],input[type=password],input[type=date],select{
+    width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;
+    background:#fffdf8;font-family:inherit;font-size:14.5px;color:var(--ink);
+  }
+  input:focus,select:focus{outline:2px solid var(--green);outline-offset:1px;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .row > *{flex:1;min-width:160px;}
+  button.primary{
+    margin-top:16px;background:var(--green-deep);color:#f2efe6;border:none;
+    padding:12px 22px;border-radius:8px;font-family:'Cairo';font-weight:700;font-size:14.5px;
+    cursor:pointer;
+  }
+  button.primary:hover{background:var(--green);}
+  button.primary:disabled{background:#9a9585;cursor:not-allowed;}
+  button.ghost{
+    background:transparent;border:1.5px solid var(--ink);color:var(--ink);
+    padding:9px 16px;border-radius:8px;font-family:'Cairo';font-weight:700;font-size:13.5px;cursor:pointer;
+  }
+  button.danger{
+    background:transparent;border:1.5px solid var(--red);color:var(--red);
+    padding:7px 12px;border-radius:8px;font-size:12.5px;cursor:pointer;font-family:inherit;
+  }
+  .msg{margin-top:12px;font-size:13.5px;padding:10px 12px;border-radius:8px;display:none;}
+  .msg.ok{display:block;background:#e4ede4;color:var(--green-deep);border:1px solid var(--green);}
+  .msg.err{display:block;background:#f3e3df;color:var(--red);border:1px solid var(--red);}
+  .msg.info{display:block;background:#ece6d4;color:#6c5a2e;border:1px solid var(--amber);}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th,td{text-align:right;padding:10px 8px;border-bottom:1px dashed var(--line);}
+  th{font-family:'Cairo';font-size:12.5px;color:#6c665a;font-weight:700;}
+  td.rank{font-family:'Cairo';font-weight:800;color:var(--green-deep);width:34px;}
+  td.count{font-family:'Cairo';font-weight:800;}
+  .empty{color:#8a8374;font-size:13.5px;padding:14px 0;text-align:center;}
+  .today-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
+  .chip{background:var(--paper-2);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12.5px;}
+
+  .member-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--line);gap:10px;}
+  .member-row .mname{font-size:14px;}
+  .member-row .mcount{font-size:12px;color:#6c665a;font-family:'Cairo';}
+  .session-code-box{
+    background:var(--green-deep);color:#f2efe6;border-radius:10px;padding:18px;text-align:center;margin-bottom:16px;
+  }
+  .session-code-box .code{font-family:'Cairo';font-size:34px;font-weight:800;letter-spacing:4px;}
+  .session-code-box .lbl{font-size:12px;opacity:.8;margin-bottom:4px;}
+  .hint{font-size:12px;color:#8a8374;margin-top:8px;}
+  footer{text-align:center;font-size:12px;color:#8a8374;padding:24px;}
+
+  .pick-list{display:flex;flex-direction:column;gap:10px;max-width:420px;}
+  .pick-item{
+    border:1.5px solid var(--ink);border-radius:8px;padding:14px 16px;cursor:pointer;
+    display:flex;justify-content:space-between;align-items:center;background:var(--paper);
+  }
+  .pick-item:hover{background:var(--paper-2);}
+  .pick-item .name{font-family:'Cairo';font-weight:700;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <button class="backbtn" id="backBtn" onclick="goHome()">→ رجوع للرئيسية</button>
+  <h1><span class="stamp">✓</span> سجلّ حضور فرق الإرشاد</h1>
+</header>
+
+<main>
+
+  <div class="view active" id="view-home">
+    <p class="lede">اختر تيم الإرشاد لتسجيل الحضور أو لمتابعة الأكثر حضورًا.</p>
+    <p class="section-label">التيمات</p>
+    <div class="team-grid" id="teamGrid"></div>
+
+    <div class="admin-entry" onclick="openAdminTeamPicker()">
+      <div>
+        <div class="t">لوحة تحكم المسؤول</div>
+        <div class="s">لإدارة أي تيم — إضافة أعضاء، أكواد الجلسات، وتسجيل الحضور اليدوي</div>
+      </div>
+      <div class="t">⚙︎</div>
+    </div>
+  </div>
+
+  <div class="view" id="view-team">
+    <div class="team-hero">
+      <h2 id="teamTitle"></h2>
+      <div class="today" id="todayLabel"></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="attend">سجّل حضورك</button>
+      <button class="tab-btn" data-tab="board">الأكثر حضورًا</button>
+    </div>
+
+    <div class="panel active" id="panel-attend">
+      <div class="card">
+        <h3>تسجيل الحضور</h3>
+        <div id="attendLockedMsg" class="msg info" style="display:none;"></div>
+        <div id="attendFormWrap">
+          <label>كود الجلسة (تعلنه إدارة التيم)</label>
+          <input type="text" id="sessionCodeInput" placeholder="مثال: 5731">
+          <label>اختر اسمك</label>
+          <select id="memberSelect"><option value="">— اختر من القائمة —</option></select>
+          <label>أو لو اسمك مش موجود، اكتبه هنا</label>
+          <input type="text" id="newNameInput" placeholder="اكتب اسمك بالكامل">
+          <button class="primary" id="submitAttendBtn" onclick="submitAttendance()">تسجيل حضوري</button>
+        </div>
+        <div class="msg" id="attendMsg"></div>
+      </div>
+      <div class="card">
+        <h3>الحاضرون اليوم (<span id="todayCount">0</span>)</h3>
+        <div class="today-list" id="todayList"><span class="empty">لسه محدش سجّل حضوره النهارده</span></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-board">
+      <div class="card">
+        <h3>الأكثر حضورًا — كل الأعضاء</h3>
+        <table>
+          <thead><tr><th class="rank">#</th><th>الاسم</th><th class="count">مرات الحضور</th></tr></thead>
+          <tbody id="boardBody"></tbody>
+        </table>
+        <div class="empty" id="boardEmpty" style="display:none;">لسه مفيش أعضاء مسجّلين في التيم ده</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-admin-pick">
+    <p class="section-label">لوحة تحكم المسؤول</p>
+    <h2 class="display" style="margin:0 0 18px;">انت عايز تدخل على تيم مين؟</h2>
+    <div class="pick-list" id="adminPickList"></div>
+  </div>
+
+  <div class="view" id="view-admin-login">
+    <p class="section-label" id="adminLoginTeamLabel"></p>
+    <div class="card" style="max-width:400px;">
+      <h3>دخول مسؤول التيم</h3>
+      <label>كود المسؤول</label>
+      <input type="password" id="adminCodeInput" placeholder="كود المسؤول الخاص بالتيم">
+      <button class="primary" onclick="tryAdminLogin()">دخول</button>
+      <div class="msg" id="adminLoginMsg"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-admin-panel">
+    <div class="team-hero">
+      <h2 id="adminTeamTitle"></h2>
+      <div class="today" id="adminTodayLabel"></div>
+    </div>
+
+    <div class="session-code-box">
+      <div class="lbl">كود جلسة اليوم</div>
+      <div class="code" id="currentSessionCodeDisplay">—</div>
+      <button class="ghost" style="margin-top:12px;background:#f2efe6;" onclick="generateSessionCode()">توليد كود جديد لليوم</button>
+    </div>
+
+    <div class="card">
+      <h3>إضافة عضو جديد للتيم</h3>
+      <div class="row">
+        <input type="text" id="adminNewMemberInput" placeholder="اسم العضو">
+        <button class="primary" style="margin-top:0;flex:0 0 auto;" onclick="adminAddMember()">إضافة</button>
+      </div>
+      <div class="hint">الأعضاء اللي تضيفهم هنا هيظهروا في قايمة "اختر اسمك" لهذا التيم.</div>
+      <div class="msg" id="adminAddMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>تسجيل حضور يدوي لأي عضو في أي يوم</h3>
+      <div class="row">
+        <select id="adminMarkMemberSelect"></select>
+        <input type="date" id="adminMarkDate">
+      </div>
+      <button class="primary" onclick="adminMarkAttendance()">تسجيل الحضور يدويًا</button>
+      <div class="msg" id="adminMarkMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>أعضاء التيم (<span id="memberCountLabel">0</span>)</h3>
+      <div id="memberList"></div>
+      <div class="empty" id="memberListEmpty" style="display:none;">لسه مفيش أعضاء</div>
+    </div>
+
+    <div class="card">
+      <h3>تغيير كود المسؤول</h3>
+      <label>كود المسؤول الحالي</label>
+      <input type="password" id="currentAdminCodeInput" placeholder="اكتب الكود الحالي للتأكيد">
+      <label>كود المسؤول الجديد</label>
+      <input type="text" id="newAdminCodeInput" placeholder="اكتب الكود الجديد">
+      <button class="primary" onclick="changeAdminCode()">حفظ الكود الجديد</button>
+      <div class="msg" id="changeCodeMsg"></div>
+    </div>
+  </div>
+
+</main>
+
+<footer>سجلّ حضور فرق الإرشاد — البيانات مخزّنة على Firebase</footer>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCC9iwNuBR74To_BqsF5Knnzf8ptUlWMkc",
+  authDomain: "studypro-a9bd7.firebaseapp.com",
+  projectId: "studypro-a9bd7",
+  storageBucket: "studypro-a9bd7.firebasestorage.app",
+  messagingSenderId: "71797644679",
+  appId: "1:71797644679:web:d052a92b3e0a848c308722",
+  measurementId: "G-PQW09PC6H3"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch(() => {
+  // persistence unavailable (private browsing / multiple tabs without sync) — app still works online
+});
+const FieldValue = firebase.firestore.FieldValue;
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
+const TEAMS = [
+  { id: "geomatics", name: "جيوماتكس" },
+  { id: "german",    name: "الألماني" },
+  { id: "english",   name: "الإنجلش" },
+  { id: "french",    name: "الفرنساوي" },
+  { id: "japanese",  name: "الياباني" },
+  { id: "chinese",   name: "الصيني" },
+  { id: "spanish",   name: "الإسباني" },
+  { id: "italian",   name: "الإيطالي" },
+];
+const DEFAULT_ADMIN_CODE = "6867791";
+const MASTER_ADMIN_CODE = "6867791"; // كود رئيسي بيشتغل مع كل التيمات دايمًا
+const LOCK_KEY = "attendanceDeviceLock";
+const LOCK_MS = 24 * 60 * 60 * 1000;
+
+let currentTeamId = null;
+let currentTeamData = null;
+let currentMembers = [];
+let adminPickedTeamId = null;
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function todayDisplay(){
+  return new Date().toLocaleDateString("ar-EG", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function showMsg(el, kind, text){
+  el.className = "msg " + kind;
+  el.textContent = text;
+}
+
+function getLockRemainingMs(){
+  const raw = localStorage.getItem(LOCK_KEY);
+  if(!raw) return 0;
+  let data;
+  try{ data = JSON.parse(raw); }catch(e){ return 0; }
+  const remain = LOCK_MS - (Date.now() - data.ts);
+  return remain > 0 ? remain : 0;
+}
+function setDeviceLock(){
+  localStorage.setItem(LOCK_KEY, JSON.stringify({ ts: Date.now() }));
+}
+function formatRemaining(ms){
+  const totalMin = Math.ceil(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if(h > 0) return `${h} ساعة و${m} دقيقة`;
+  return `${m} دقيقة`;
+}
+function applyDeviceLockUI(){
+  const remain = getLockRemainingMs();
+  const lockedMsg = document.getElementById("attendLockedMsg");
+  const formWrap = document.getElementById("attendFormWrap");
+  if(remain > 0){
+    lockedMsg.style.display = "block";
+    lockedMsg.textContent = `تم تسجيل حضورك من الجهاز ده بالفعل. تقدر تسجل حضور تاني بعد ${formatRemaining(remain)}.`;
+    formWrap.style.display = "none";
+  } else {
+    lockedMsg.style.display = "none";
+    formWrap.style.display = "block";
+  }
+}
+
+function showView(id){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.getElementById("backBtn").classList.toggle("show", id !== "view-home");
+}
+function goHome(){
+  currentTeamId = null;
+  adminPickedTeamId = null;
+  showView("view-home");
+  location.hash = "";
+}
+
+function renderHome(){
+  const grid = document.getElementById("teamGrid");
+  grid.innerHTML = "";
+  TEAMS.forEach((t, i) => {
+    const el = document.createElement("div");
+    el.className = "team-card";
+    el.onclick = () => openTeam(t.id);
+    el.innerHTML = `<div class="idx">فريق ${String(i+1).padStart(2,"0")}</div>
+                     <div class="name">${t.name}</div>
+                     <div class="sub">تسجيل حضور وترتيب الأكثر حضورًا</div>`;
+    grid.appendChild(el);
+  });
+}
+
+async function openTeam(teamId){
+  const team = TEAMS.find(t => t.id === teamId);
+  if(!team) return;
+  currentTeamId = teamId;
+  showView("view-team");
+  document.getElementById("teamTitle").textContent = team.name;
+  document.getElementById("todayLabel").textContent = todayDisplay();
+  location.hash = "team/" + teamId;
+  switchTab("attend");
+  document.getElementById("sessionCodeInput").value = "";
+  document.getElementById("newNameInput").value = "";
+  document.getElementById("attendMsg").className = "msg";
+
+  await ensureTeamDoc(teamId);
+  await loadMembers(teamId);
+  renderTodayList();
+  renderLeaderboard();
+  applyDeviceLockUI();
+}
+
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=> switchTab(btn.dataset.tab));
+});
+function switchTab(tab){
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  document.getElementById("panel-"+tab).classList.add("active");
+}
+
+async function ensureTeamDoc(teamId){
+  const ref = db.collection("teams").doc(teamId);
+  const snap = await ref.get();
+  if(!snap.exists){
+    const team = TEAMS.find(t=>t.id===teamId);
+    await ref.set({
+      name: team.name,
+      adminCode: DEFAULT_ADMIN_CODE,
+      sessionCode: "",
+      sessionDate: ""
+    });
+  }
+  const fresh = await ref.get();
+  currentTeamData = fresh.data();
+}
+
+async function loadMembers(teamId){
+  const snap = await db.collection("teams").doc(teamId).collection("members").orderBy("name").get();
+  currentMembers = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  const sel = document.getElementById("memberSelect");
+  sel.innerHTML = `<option value="">— اختر من القائمة —</option>` +
+    currentMembers.map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("");
+  const adminSel = document.getElementById("adminMarkMemberSelect");
+  adminSel.innerHTML = currentMembers.map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("")
+    || `<option value="">لا يوجد أعضاء بعد</option>`;
+  document.getElementById("adminMarkDate").value = todayStr();
+  renderAdminMemberList();
+}
+
+async function submitAttendance(){
+  const msg = document.getElementById("attendMsg");
+  msg.className = "msg";
+
+  if(getLockRemainingMs() > 0){
+    applyDeviceLockUI();
+    return;
+  }
+
+  const code = document.getElementById("sessionCodeInput").value.trim();
+  const selectedId = document.getElementById("memberSelect").value;
+  const newName = document.getElementById("newNameInput").value.trim();
+
+  if(!code){ showMsg(msg, "err", "من فضلك اكتب كود الجلسة اللي أعلنته الإدارة."); return; }
+  if(!currentTeamData.sessionCode || currentTeamData.sessionDate !== todayStr()){
+    showMsg(msg, "err", "لسه مفيش كود حضور مفعّل لليوم النهارده. اتأكد من الإدارة."); return;
+  }
+  if(code !== currentTeamData.sessionCode){
+    showMsg(msg, "err", "الكود اللي كتبته غلط، حاول تاني."); return;
+  }
+  if(!selectedId && !newName){
+    showMsg(msg, "err", "اختار اسمك من القائمة أو اكتبه في الخانة التانية."); return;
+  }
+
+  try{
+    let memberId = selectedId;
+    let memberName;
+    if(!memberId){
+      const existing = currentMembers.find(m => m.name.trim().toLowerCase() === newName.toLowerCase());
+      if(existing){
+        memberId = existing.id;
+        memberName = existing.name;
+      } else {
+        const memRef = await db.collection("teams").doc(currentTeamId).collection("members").add({
+          name: newName, attendanceCount: 0
+        });
+        memberId = memRef.id;
+        memberName = newName;
+      }
+    } else {
+      memberName = currentMembers.find(m=>m.id===memberId)?.name || "";
+    }
+
+    const dup = await db.collection("teams").doc(currentTeamId).collection("attendance")
+      .where("memberId","==",memberId).where("date","==",todayStr()).limit(1).get();
+    if(!dup.empty){
+      showMsg(msg, "err", `تم تسجيل حضورك بالفعل النهارده يا ${memberName} 👍`);
+      setDeviceLock();
+      applyDeviceLockUI();
+      return;
+    }
+
+    await db.collection("teams").doc(currentTeamId).collection("attendance").add({
+      memberId, memberName, date: todayStr(), timestamp: FieldValue.serverTimestamp()
+    });
+    await db.collection("teams").doc(currentTeamId).collection("members").doc(memberId).update({
+      attendanceCount: FieldValue.increment(1)
+    });
+
+    showMsg(msg, "ok", `تم تسجيل حضورك يا ${memberName} ✓`);
+    setDeviceLock();
+    await loadMembers(currentTeamId);
+    renderTodayList();
+    renderLeaderboard();
+    applyDeviceLockUI();
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء التسجيل، حاول تاني.");
+  }
+}
+
+async function renderTodayList(){
+  const snap = await db.collection("teams").doc(currentTeamId).collection("attendance")
+    .where("date","==",todayStr()).get();
+  const list = document.getElementById("todayList");
+  const names = snap.docs.map(d=>d.data().memberName);
+  document.getElementById("todayCount").textContent = names.length;
+  list.innerHTML = names.length
+    ? names.map(n=>`<span class="chip">${escapeHtml(n)}</span>`).join("")
+    : `<span class="empty">لسه محدش سجّل حضوره النهارده</span>`;
+}
+
+function renderLeaderboard(){
+  const sorted = [...currentMembers].sort((a,b)=> (b.attendanceCount||0) - (a.attendanceCount||0));
+  const body = document.getElementById("boardBody");
+  const empty = document.getElementById("boardEmpty");
+  if(sorted.length===0){
+    body.innerHTML = ""; empty.style.display = "block"; return;
+  }
+  empty.style.display = "none";
+  body.innerHTML = sorted.map((m,i)=>`
+    <tr><td class="rank">${i+1}</td><td>${escapeHtml(m.name)}</td><td class="count">${m.attendanceCount||0}</td></tr>
+  `).join("");
+}
+
+function openAdminTeamPicker(){
+  const list = document.getElementById("adminPickList");
+  list.innerHTML = TEAMS.map(t => `
+    <div class="pick-item" onclick="pickAdminTeam('${t.id}')">
+      <span class="name">${t.name}</span><span>›</span>
+    </div>
+  `).join("");
+  showView("view-admin-pick");
+  location.hash = "admin";
+}
+async function pickAdminTeam(teamId){
+  adminPickedTeamId = teamId;
+  const team = TEAMS.find(t=>t.id===teamId);
+  document.getElementById("adminLoginTeamLabel").textContent = "لوحة تحكم المسؤول — " + team.name;
+  document.getElementById("adminCodeInput").value = "";
+  document.getElementById("adminLoginMsg").className = "msg";
+  await ensureTeamDoc(teamId);
+  showView("view-admin-login");
+}
+
+async function tryAdminLogin(){
+  const msg = document.getElementById("adminLoginMsg");
+  const code = document.getElementById("adminCodeInput").value.trim();
+  if(code && (code === currentTeamData.adminCode || code === MASTER_ADMIN_CODE)){
+    await enterAdminPanel(adminPickedTeamId);
+  } else {
+    showMsg(msg, "err", "كود المسؤول غير صحيح.");
+  }
+}
+
+async function enterAdminPanel(teamId){
+  currentTeamId = teamId;
+  const team = TEAMS.find(t=>t.id===teamId);
+  document.getElementById("adminTeamTitle").textContent = "لوحة تحكم — " + team.name;
+  document.getElementById("adminTodayLabel").textContent = todayDisplay();
+  document.getElementById("currentAdminCodeInput").value = "";
+  document.getElementById("newAdminCodeInput").value = "";
+  document.getElementById("adminNewMemberInput").value = "";
+  ["adminAddMsg","adminMarkMsg","changeCodeMsg"].forEach(id=>{
+    document.getElementById(id).className = "msg";
+  });
+  await ensureTeamDoc(teamId);
+  await loadMembers(teamId);
+  renderSessionCodeDisplay();
+  showView("view-admin-panel");
+  location.hash = "admin/" + teamId;
+}
+
+function renderSessionCodeDisplay(){
+  document.getElementById("currentSessionCodeDisplay").textContent =
+    (currentTeamData.sessionCode && currentTeamData.sessionDate === todayStr())
+      ? currentTeamData.sessionCode : "—";
+}
+
+function generateSessionCode(){
+  const code = String(Math.floor(1000 + Math.random()*9000));
+  db.collection("teams").doc(currentTeamId).update({
+    sessionCode: code, sessionDate: todayStr()
+  }).then(async ()=>{
+    await ensureTeamDoc(currentTeamId);
+    renderSessionCodeDisplay();
+  });
+}
+
+async function adminAddMember(){
+  const input = document.getElementById("adminNewMemberInput");
+  const msg = document.getElementById("adminAddMsg");
+  const name = input.value.trim();
+  if(!name){ showMsg(msg,"err","اكتب اسم العضو أولاً."); return; }
+  const dup = currentMembers.find(m=>m.name.trim().toLowerCase()===name.toLowerCase());
+  if(dup){ showMsg(msg,"err","العضو ده موجود بالفعل."); return; }
+  await db.collection("teams").doc(currentTeamId).collection("members").add({ name, attendanceCount: 0 });
+  input.value = "";
+  showMsg(msg,"ok","تمت الإضافة، وهيظهر الاسم في قايمة الطلاب لهذا التيم.");
+  await loadMembers(currentTeamId);
+}
+
+async function adminRemoveMember(memberId){
+  if(!confirm("متأكد إنك عايز تشيل العضو ده؟ هيتشال سجل حضوره كمان.")) return;
+  const attSnap = await db.collection("teams").doc(currentTeamId).collection("attendance")
+    .where("memberId","==",memberId).get();
+  const batch = db.batch();
+  attSnap.docs.forEach(d=>batch.delete(d.ref));
+  batch.delete(db.collection("teams").doc(currentTeamId).collection("members").doc(memberId));
+  await batch.commit();
+  await loadMembers(currentTeamId);
+}
+
+async function adminMarkAttendance(){
+  const msg = document.getElementById("adminMarkMsg");
+  const memberId = document.getElementById("adminMarkMemberSelect").value;
+  const date = document.getElementById("adminMarkDate").value;
+  if(!memberId){ showMsg(msg,"err","لازم تضيف أعضاء الأول."); return; }
+  if(!date){ showMsg(msg,"err","اختار التاريخ."); return; }
+  const member = currentMembers.find(m=>m.id===memberId);
+
+  const dup = await db.collection("teams").doc(currentTeamId).collection("attendance")
+    .where("memberId","==",memberId).where("date","==",date).limit(1).get();
+  if(!dup.empty){
+    showMsg(msg,"err", `${member.name} مسجّل حضوره بالفعل في اليوم ده.`); return;
+  }
+
+  await db.collection("teams").doc(currentTeamId).collection("attendance").add({
+    memberId, memberName: member.name, date, timestamp: FieldValue.serverTimestamp()
+  });
+  await db.collection("teams").doc(currentTeamId).collection("members").doc(memberId).update({
+    attendanceCount: FieldValue.increment(1)
+  });
+  showMsg(msg,"ok", `تم تسجيل حضور ${member.name} بتاريخ ${date}.`);
+  await loadMembers(currentTeamId);
+}
+
+function renderAdminMemberList(){
+  const wrap = document.getElementById("memberList");
+  const empty = document.getElementById("memberListEmpty");
+  document.getElementById("memberCountLabel").textContent = currentMembers.length;
+  if(currentMembers.length===0){ wrap.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display = "none";
+  wrap.innerHTML = currentMembers.map(m=>`
+    <div class="member-row">
+      <div>
+        <div class="mname">${escapeHtml(m.name)}</div>
+        <div class="mcount">${m.attendanceCount||0} مرة حضور</div>
+      </div>
+      <button class="danger" onclick="adminRemoveMember('${m.id}')">حذف</button>
+    </div>
+  `).join("");
+}
+
+async function changeAdminCode(){
+  const msg = document.getElementById("changeCodeMsg");
+  const current = document.getElementById("currentAdminCodeInput").value.trim();
+  const next = document.getElementById("newAdminCodeInput").value.trim();
+  if(!current){ showMsg(msg,"err","اكتب كود المسؤول الحالي للتأكيد."); return; }
+  if(current !== currentTeamData.adminCode && current !== MASTER_ADMIN_CODE){
+    showMsg(msg,"err","كود المسؤول الحالي اللي كتبته غلط."); return;
+  }
+  if(!next || next.length < 4){ showMsg(msg,"err","اكتب كود جديد من 4 حروف/أرقام على الأقل."); return; }
+  await db.collection("teams").doc(currentTeamId).update({ adminCode: next });
+  currentTeamData.adminCode = next;
+  document.getElementById("currentAdminCodeInput").value = "";
+  document.getElementById("newAdminCodeInput").value = "";
+  showMsg(msg,"ok","تم تغيير كود المسؤول بنجاح.");
+}
+
+renderHome();
+if(location.hash.startsWith("#team/")){
+  openTeam(location.hash.replace("#team/",""));
+} else if(location.hash === "#admin" || location.hash.startsWith("#admin/")){
+  openAdminTeamPicker();
+}
+</script>
+</body>
+</html>
