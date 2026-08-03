@@ -142,6 +142,10 @@
   .member-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--line);gap:10px;}
   .member-row .mname{font-size:14px;}
   .member-row .mcount{font-size:12px;color:#6c665a;font-family:'Cairo';}
+  .leader-check-row{display:flex;align-items:center;justify-content:space-between;padding:9px 4px;border-bottom:1px dashed var(--line);gap:10px;}
+  .leader-check-row label{display:flex;align-items:center;gap:10px;margin:0;font-size:14.5px;color:var(--ink);cursor:pointer;flex:1;}
+  .leader-check-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--green-deep);cursor:pointer;}
+  .leader-check-row .already{font-size:11.5px;color:#8a8374;}
   .session-code-box{
     background:var(--green-deep);color:#f2efe6;border-radius:10px;padding:18px;text-align:center;margin-bottom:16px;
   }
@@ -210,13 +214,19 @@
       </div>
 
       <div class="card">
-        <h3>👑 أنا ليدر التيم — سجّل حضور الفريق كله</h3>
-        <div class="hint" style="margin:0 0 10px;">لو انت ليدر التيم، تقدر تسجل حضور كل الأعضاء دفعة واحدة بنفس كود الجلسة اللي في لوحة تحكم المسؤول.</div>
+        <h3>👑 أنا ليدر التيم — سجّل حضور اللي حاضرين بس</h3>
+        <div class="hint" style="margin:0 0 10px;">لو انت ليدر التيم، تقدر تحدد مين الحاضر النهارده من قايمة الأعضاء، وتسجل حضورهم كلهم دفعة واحدة بنفس كود الجلسة اللي في لوحة تحكم المسؤول.</div>
         <button class="ghost" id="leaderToggleBtn" onclick="toggleLeaderForm()">أنا الليدر</button>
         <div id="leaderFormWrap" style="display:none;margin-top:14px;">
+          <label>حدد الحاضرين النهارده</label>
+          <div class="row" style="margin-bottom:8px;">
+            <button class="ghost" type="button" style="flex:0 0 auto;" onclick="leaderSelectAll(true)">تحديد الكل</button>
+            <button class="ghost" type="button" style="flex:0 0 auto;" onclick="leaderSelectAll(false)">إلغاء التحديد</button>
+          </div>
+          <div id="leaderMemberList"></div>
           <label>كود الجلسة (نفس الكود اللي في لوحة تحكم المسؤول)</label>
           <input type="text" id="leaderCodeInput" placeholder="مثال: 5731">
-          <button class="primary" onclick="leaderMarkWholeTeam()">تسجيل حضور الفريق بالكامل</button>
+          <button class="primary" onclick="leaderMarkSelected()">تسجيل حضور المحددين</button>
           <div class="msg" id="leaderMsg"></div>
         </div>
       </div>
@@ -600,17 +610,48 @@ async function renderTodayList(){
     : `<span class="empty">لسه محدش سجّل حضوره النهارده</span>`;
 }
 
-function toggleLeaderForm(){
+async function toggleLeaderForm(){
   const wrap = document.getElementById("leaderFormWrap");
   const opening = wrap.style.display === "none";
   wrap.style.display = opening ? "block" : "none";
   if(opening){
     document.getElementById("leaderCodeInput").value = "";
     document.getElementById("leaderMsg").className = "msg";
+    await renderLeaderMemberList();
   }
 }
 
-async function leaderMarkWholeTeam(){
+async function renderLeaderMemberList(){
+  const wrap = document.getElementById("leaderMemberList");
+  if(currentMembers.length === 0){
+    wrap.innerHTML = `<div class="empty">لسه مفيش أعضاء مضافين للتيم ده.</div>`;
+    return;
+  }
+  const existingSnap = await db.collection("teams").doc(currentTeamId).collection("attendance")
+    .where("date","==",todayStr()).get();
+  const alreadyPresentIds = new Set(existingSnap.docs.map(d=>d.data().memberId));
+
+  wrap.innerHTML = currentMembers.map(m => {
+    const already = alreadyPresentIds.has(m.id);
+    return `
+      <div class="leader-check-row">
+        <label>
+          <input type="checkbox" class="leaderCheck" value="${m.id}" ${already ? "checked disabled" : ""}>
+          ${escapeHtml(m.name)}
+        </label>
+        ${already ? `<span class="already">مسجّل بالفعل</span>` : ""}
+      </div>
+    `;
+  }).join("");
+}
+
+function leaderSelectAll(select){
+  document.querySelectorAll("#leaderMemberList .leaderCheck:not(:disabled)").forEach(cb => {
+    cb.checked = select;
+  });
+}
+
+async function leaderMarkSelected(){
   const msg = document.getElementById("leaderMsg");
   msg.className = "msg";
   const code = document.getElementById("leaderCodeInput").value.trim();
@@ -622,36 +663,32 @@ async function leaderMarkWholeTeam(){
   if(code !== currentTeamData.sessionCode){
     showMsg(msg, "err", "الكود اللي كتبته غلط، حاول تاني."); return;
   }
-  if(currentMembers.length === 0){
-    showMsg(msg, "err", "لسه مفيش أعضاء مضافين للتيم ده."); return;
+
+  const selectedIds = Array.from(document.querySelectorAll("#leaderMemberList .leaderCheck:checked:not(:disabled)"))
+    .map(cb => cb.value);
+  if(selectedIds.length === 0){
+    showMsg(msg, "err", "حدد الأعضاء الحاضرين النهارده الأول."); return;
   }
-  if(!confirm(`هتسجل حضور كل أعضاء الفريق (${currentMembers.length}) دفعة واحدة، متأكد؟`)) return;
+  if(!confirm(`هتسجل حضور ${selectedIds.length} عضو محددين، متأكد؟`)) return;
 
   try{
-    const existingSnap = await db.collection("teams").doc(currentTeamId).collection("attendance")
-      .where("date","==",todayStr()).get();
-    const alreadyPresentIds = new Set(existingSnap.docs.map(d=>d.data().memberId));
-    const toMark = currentMembers.filter(m => !alreadyPresentIds.has(m.id));
-
-    if(toMark.length === 0){
-      showMsg(msg, "ok", "كل الأعضاء مسجّلين حضورهم بالفعل النهارده 👍");
-      return;
-    }
-
     const batch = db.batch();
-    toMark.forEach(m => {
+    selectedIds.forEach(id => {
+      const member = currentMembers.find(m => m.id === id);
+      if(!member) return;
       const attRef = db.collection("teams").doc(currentTeamId).collection("attendance").doc();
-      batch.set(attRef, { memberId: m.id, memberName: m.name, date: todayStr(), timestamp: FieldValue.serverTimestamp() });
-      const memRef = db.collection("teams").doc(currentTeamId).collection("members").doc(m.id);
+      batch.set(attRef, { memberId: id, memberName: member.name, date: todayStr(), timestamp: FieldValue.serverTimestamp() });
+      const memRef = db.collection("teams").doc(currentTeamId).collection("members").doc(id);
       batch.update(memRef, { attendanceCount: FieldValue.increment(1) });
     });
     await batch.commit();
 
-    showMsg(msg, "ok", `تم تسجيل حضور ${toMark.length} عضو ✓`);
+    showMsg(msg, "ok", `تم تسجيل حضور ${selectedIds.length} عضو ✓`);
     document.getElementById("leaderCodeInput").value = "";
     await loadMembers(currentTeamId);
     renderTodayList();
     renderLeaderboard();
+    renderLeaderMemberList();
   }catch(e){
     console.error(e);
     showMsg(msg, "err", "حصل خطأ أثناء التسجيل، حاول تاني.");
