@@ -145,7 +145,13 @@
   .leader-check-row{display:flex;align-items:center;justify-content:space-between;padding:9px 4px;border-bottom:1px dashed var(--line);gap:10px;}
   .leader-check-row label{display:flex;align-items:center;gap:10px;margin:0;font-size:14.5px;color:var(--ink);cursor:pointer;flex:1;}
   .leader-check-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--green-deep);cursor:pointer;}
-  .leader-check-row .already{font-size:11.5px;color:#8a8374;}
+  .leader-check-row .already{font-size:11.5px;color:#8a8374;display:flex;align-items:center;gap:8px;}
+  .undo-x{
+    background:transparent;border:1.5px solid var(--red);color:var(--red);
+    width:24px;height:24px;border-radius:50%;font-size:13px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;padding:0;
+  }
+  .undo-x:hover{background:var(--red);color:#fff;}
   .session-code-box{
     background:var(--green-deep);color:#f2efe6;border-radius:10px;padding:18px;text-align:center;margin-bottom:16px;
   }
@@ -276,6 +282,13 @@
       <div class="lbl">كود جلسة اليوم</div>
       <div class="code" id="currentSessionCodeDisplay">—</div>
       <button class="ghost" style="margin-top:12px;background:#f2efe6;" onclick="generateSessionCode()">توليد كود جديد لليوم</button>
+    </div>
+
+    <div class="card">
+      <h3>مسح حضور اليوم بالكامل</h3>
+      <div class="hint" style="margin:0 0 10px;">لو حصل تسجيل غلط (مثلًا وقت تجربة الموقع)، الزرار ده بيمسح كل سجلات حضور النهارده بس لهذا التيم، وبيرجّع عداد "مرات الحضور" لكل عضو زي ما كان.</div>
+      <button class="ghost" style="border-color:var(--red);color:var(--red);" onclick="adminClearTodayAttendance()">مسح حضور اليوم لكل التيم</button>
+      <div class="msg" id="adminClearMsg"></div>
     </div>
 
     <div class="card">
@@ -639,10 +652,34 @@ async function renderLeaderMemberList(){
           <input type="checkbox" class="leaderCheck" value="${m.id}" ${already ? "checked disabled" : ""}>
           ${escapeHtml(m.name)}
         </label>
-        ${already ? `<span class="already">مسجّل بالفعل</span>` : ""}
+        ${already ? `<span class="already">مسجّل بالفعل <button type="button" class="undo-x" title="امسح حضوره النهارده" onclick="leaderUndoAttendance('${m.id}')">✕</button></span>` : ""}
       </div>
     `;
   }).join("");
+}
+
+async function leaderUndoAttendance(memberId){
+  const member = currentMembers.find(m => m.id === memberId);
+  if(!member) return;
+  if(!confirm(`متأكد إنك عايز تمسح حضور ${member.name} النهارده؟`)) return;
+  try{
+    const snap = await db.collection("teams").doc(currentTeamId).collection("attendance")
+      .where("memberId","==",memberId).where("date","==",todayStr()).get();
+    if(snap.empty) { await renderLeaderMemberList(); return; }
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    batch.update(db.collection("teams").doc(currentTeamId).collection("members").doc(memberId), {
+      attendanceCount: FieldValue.increment(-snap.size)
+    });
+    await batch.commit();
+    await loadMembers(currentTeamId);
+    renderTodayList();
+    renderLeaderboard();
+    renderLeaderMemberList();
+  }catch(e){
+    console.error(e);
+    alert("حصل خطأ أثناء المسح، حاول تاني.");
+  }
 }
 
 function leaderSelectAll(select){
@@ -746,7 +783,7 @@ async function enterAdminPanel(teamId){
   document.getElementById("currentAdminCodeInput").value = "";
   document.getElementById("newAdminCodeInput").value = "";
   document.getElementById("adminNewMemberInput").value = "";
-  ["adminAddMsg","adminMarkMsg","changeCodeMsg"].forEach(id=>{
+  ["adminAddMsg","adminMarkMsg","changeCodeMsg","adminClearMsg"].forEach(id=>{
     document.getElementById(id).className = "msg";
   });
   await ensureTeamDoc(teamId);
@@ -770,6 +807,41 @@ function generateSessionCode(){
     await ensureTeamDoc(currentTeamId);
     renderSessionCodeDisplay();
   });
+}
+
+async function adminClearTodayAttendance(){
+  const msg = document.getElementById("adminClearMsg");
+  msg.className = "msg";
+  const snap = await db.collection("teams").doc(currentTeamId).collection("attendance")
+    .where("date","==",todayStr()).get();
+  if(snap.empty){
+    showMsg(msg, "ok", "مفيش حضور مسجّل النهارده أصلًا لهذا التيم.");
+    return;
+  }
+  if(!confirm(`هيتمسح حضور ${snap.size} تسجيل النهارده لهذا التيم بالكامل، متأكد؟`)) return;
+
+  try{
+    const countByMember = {};
+    snap.docs.forEach(d => {
+      const mid = d.data().memberId;
+      countByMember[mid] = (countByMember[mid] || 0) + 1;
+    });
+
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    Object.keys(countByMember).forEach(mid => {
+      batch.update(db.collection("teams").doc(currentTeamId).collection("members").doc(mid), {
+        attendanceCount: FieldValue.increment(-countByMember[mid])
+      });
+    });
+    await batch.commit();
+
+    showMsg(msg, "ok", `تم مسح ${snap.size} تسجيل حضور لليوم ✓`);
+    await loadMembers(currentTeamId);
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء المسح، حاول تاني.");
+  }
 }
 
 async function adminAddMember(){
