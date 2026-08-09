@@ -224,8 +224,6 @@
           <input type="text" id="sessionCodeInput" placeholder="مثال: 5731">
           <label>اختر اسمك</label>
           <select id="memberSelect"><option value="">— اختر من القائمة —</option></select>
-          <label>أو لو اسمك مش موجود، اكتبه هنا</label>
-          <input type="text" id="newNameInput" placeholder="اكتب اسمك بالكامل">
           <button class="primary" id="submitAttendBtn" onclick="submitAttendance()">تسجيل حضوري</button>
         </div>
         <div class="msg" id="attendMsg"></div>
@@ -280,14 +278,67 @@
 
   <div class="view" id="view-admin-pick">
     <p class="section-label">لوحة تحكم المسؤول</p>
-    <h2 class="display" style="margin:0 0 18px;">انت عايز تدخل على تيم مين؟</h2>
-    <div class="pick-list" style="margin-bottom:22px;">
-      <div class="pick-item" style="border-color:var(--green-deep);background:var(--paper-2);" onclick="pickGlobalAdmin()">
-        <span class="name">🌍 كل التيمات دفعة واحدة (كود جلسة موحّد)</span><span>›</span>
+    <div class="card">
+      <h3>اختار تيم</h3>
+      <label>التيم</label>
+      <select id="adminTeamSelect" onchange="onAdminTeamSelectChange()">
+        <option value="">— اختر تيم —</option>
+        <option value="__global__">🌍 كل التيمات دفعة واحدة (كود جلسة موحّد)</option>
+      </select>
+    </div>
+
+    <div id="adminTeamSection" style="display:none;">
+      <div class="team-hero">
+        <h2 id="adminTeamTitle"></h2>
+        <div class="today" id="adminTodayLabel"></div>
+      </div>
+
+      <div class="card">
+        <h3>تسجيل حضور يدوي لأي عضو في أي يوم</h3>
+        <div class="row">
+          <select id="adminMarkMemberSelect"></select>
+          <input type="date" id="adminMarkDate">
+        </div>
+        <button class="primary" onclick="adminMarkAttendance()">تسجيل الحضور يدويًا</button>
+        <div class="msg" id="adminMarkMsg"></div>
+      </div>
+
+      <div class="card">
+        <h3>إضافة عضو جديد للتيم</h3>
+        <div class="hint" style="margin:0 0 10px;">لو في حد مش ظاهر في القائمة اللي الطالب بيختار اسمه منها، ضيفه هنا.</div>
+        <label>اسم العضو</label>
+        <input type="text" id="adminNewMemberInput" placeholder="اكتب اسم العضو بالكامل">
+        <button class="primary" onclick="adminAddMember()">إضافة العضو</button>
+        <div class="msg" id="adminAddMemberMsg"></div>
       </div>
     </div>
-    <p class="section-label">أو ادخل على تيم واحد بس</p>
-    <div class="pick-list" id="adminPickList" style="margin-bottom:22px;"></div>
+
+    <div id="adminGlobalSection" style="display:none;">
+      <div class="team-hero">
+        <h2>🌍 لوحة التحكم العامة — كل التيمات</h2>
+        <div class="today" id="globalTodayLabel"></div>
+      </div>
+
+      <div class="card">
+        <h3>تفعيل كود جلسة موحّد لكل التيمات</h3>
+        <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة. الكود بيفضل شغال 10 دقايق بس من وقت التفعيل وبعدها بيبقى مش صالح.</div>
+        <label>كود الجلسة</label>
+        <input type="text" id="globalSessionCodeInput" placeholder="مثال: 5731">
+        <div class="row">
+          <button class="primary" style="flex:0 0 auto;margin-top:0;" onclick="activateGlobalSessionCode()">تفعيل الكود لكل التيمات</button>
+          <button class="ghost" style="flex:0 0 auto;" onclick="generateGlobalSessionCode()">توليد كود عشوائي وتفعيله</button>
+        </div>
+        <div class="msg" id="globalSessionMsg"></div>
+        <div id="globalCountdownWrap" style="display:none;margin-top:10px;">
+          <div class="hint" style="margin:0;">الوقت المتبقي لصلاحية الكود: <strong id="globalCountdownLabel">10:00</strong></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>حالة كود اليوم في كل تيم</h3>
+        <div id="globalTeamsStatus"><div class="empty">بيتحمّل...</div></div>
+      </div>
+    </div>
 
     <div class="card">
       <h3>تغيير كود دخول المسؤول</h3>
@@ -296,48 +347,6 @@
       <input type="text" id="newMasterCodeInput" placeholder="اكتب الكود الجديد">
       <button class="primary" onclick="changeMasterAdminCode()">حفظ الكود الجديد</button>
       <div class="msg" id="changeMasterCodeMsg"></div>
-    </div>
-  </div>
-
-  <div class="view" id="view-admin-panel">
-    <div class="team-hero">
-      <h2 id="adminTeamTitle"></h2>
-      <div class="today" id="adminTodayLabel"></div>
-    </div>
-
-    <div class="card">
-      <h3>تسجيل حضور يدوي لأي عضو في أي يوم</h3>
-      <div class="row">
-        <select id="adminMarkMemberSelect"></select>
-        <input type="date" id="adminMarkDate">
-      </div>
-      <button class="primary" onclick="adminMarkAttendance()">تسجيل الحضور يدويًا</button>
-      <div class="msg" id="adminMarkMsg"></div>
-    </div>
-
-  </div>
-
-  <div class="view" id="view-admin-global">
-    <div class="team-hero">
-      <h2>🌍 لوحة التحكم العامة — كل التيمات</h2>
-      <div class="today" id="globalTodayLabel"></div>
-    </div>
-
-    <div class="card">
-      <h3>تفعيل كود جلسة موحّد لكل التيمات</h3>
-      <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة، بدل ما تدخل كل تيم لوحده.</div>
-      <label>كود الجلسة</label>
-      <input type="text" id="globalSessionCodeInput" placeholder="مثال: 5731">
-      <div class="row">
-        <button class="primary" style="flex:0 0 auto;margin-top:0;" onclick="activateGlobalSessionCode()">تفعيل الكود لكل التيمات</button>
-        <button class="ghost" style="flex:0 0 auto;" onclick="generateGlobalSessionCode()">توليد كود عشوائي وتفعيله</button>
-      </div>
-      <div class="msg" id="globalSessionMsg"></div>
-    </div>
-
-    <div class="card">
-      <h3>حالة كود اليوم في كل تيم</h3>
-      <div id="globalTeamsStatus"><div class="empty">بيتحمّل...</div></div>
     </div>
   </div>
 
@@ -454,6 +463,14 @@ function showMsg(el, kind, text){
   el.textContent = text;
 }
 
+const SESSION_CODE_TTL_MS = 10 * 60 * 1000; // كود الجلسة بيفضل شغال 10 دقايق بس من وقت التفعيل
+function isSessionCodeActive(teamData){
+  if(!teamData) return false;
+  if(!teamData.sessionCode || teamData.sessionDate !== todayStr()) return false;
+  if(!teamData.sessionExpiresAt || Date.now() > teamData.sessionExpiresAt) return false;
+  return true;
+}
+
 function getLockRemainingMs(){
   const raw = localStorage.getItem(LOCK_KEY);
   if(!raw) return 0;
@@ -494,6 +511,7 @@ function showView(id){
 function goHome(){
   currentTeamId = null;
   adminPickedTeamId = null;
+  stopGlobalCountdown();
   showView("view-home");
   location.hash = "";
 }
@@ -522,7 +540,6 @@ async function openTeam(teamId){
   location.hash = "team/" + teamId;
   switchTab("attend");
   document.getElementById("sessionCodeInput").value = "";
-  document.getElementById("newNameInput").value = "";
   document.getElementById("attendMsg").className = "msg";
   document.getElementById("leaderCodeInput").value = "";
   document.getElementById("leaderMsg").className = "msg";
@@ -553,7 +570,8 @@ async function ensureTeamDoc(teamId){
       name: team.name,
       adminCode: DEFAULT_ADMIN_CODE,
       sessionCode: "",
-      sessionDate: ""
+      sessionDate: "",
+      sessionExpiresAt: 0
     });
   }
   const fresh = await ref.get();
@@ -583,37 +601,21 @@ async function submitAttendance(){
 
   const code = document.getElementById("sessionCodeInput").value.trim();
   const selectedId = document.getElementById("memberSelect").value;
-  const newName = document.getElementById("newNameInput").value.trim();
 
   if(!code){ showMsg(msg, "err", "من فضلك اكتب كود الجلسة اللي أعلنته الإدارة."); return; }
-  if(!currentTeamData.sessionCode || currentTeamData.sessionDate !== todayStr()){
-    showMsg(msg, "err", "لسه مفيش كود حضور مفعّل لليوم النهارده. اتأكد من الإدارة."); return;
+  if(!isSessionCodeActive(currentTeamData)){
+    showMsg(msg, "err", "لسه مفيش كود حضور مفعّل دلوقتي، أو الكود ده خلصت صلاحيته. اتأكد من الإدارة."); return;
   }
   if(code !== currentTeamData.sessionCode){
     showMsg(msg, "err", "الكود اللي كتبته غلط، حاول تاني."); return;
   }
-  if(!selectedId && !newName){
-    showMsg(msg, "err", "اختار اسمك من القائمة أو اكتبه في الخانة التانية."); return;
+  if(!selectedId){
+    showMsg(msg, "err", "اختار اسمك من القائمة."); return;
   }
 
   try{
-    let memberId = selectedId;
-    let memberName;
-    if(!memberId){
-      const existing = currentMembers.find(m => m.name.trim().toLowerCase() === newName.toLowerCase());
-      if(existing){
-        memberId = existing.id;
-        memberName = existing.name;
-      } else {
-        const memRef = await db.collection("teams").doc(currentTeamId).collection("members").add({
-          name: newName, attendanceCount: 0
-        });
-        memberId = memRef.id;
-        memberName = newName;
-      }
-    } else {
-      memberName = currentMembers.find(m=>m.id===memberId)?.name || "";
-    }
+    const memberId = selectedId;
+    const memberName = currentMembers.find(m=>m.id===memberId)?.name || "";
 
     const dup = await db.collection("teams").doc(currentTeamId).collection("attendance")
       .where("memberId","==",memberId).where("date","==",todayStr()).limit(1).get();
@@ -725,8 +727,8 @@ async function leaderMarkSelected(){
   const code = document.getElementById("leaderCodeInput").value.trim();
 
   if(!code){ showMsg(msg, "err", "اكتب كود الجلسة الأول."); return; }
-  if(!currentTeamData.sessionCode || currentTeamData.sessionDate !== todayStr()){
-    showMsg(msg, "err", "لسه مفيش كود حضور مفعّل لليوم النهارده. اطلب من المسؤول يولّد كود من لوحة التحكم."); return;
+  if(!isSessionCodeActive(currentTeamData)){
+    showMsg(msg, "err", "لسه مفيش كود حضور مفعّل دلوقتي، أو الكود ده خلصت صلاحيته. اطلب من المسؤول يولّد كود جديد."); return;
   }
   if(code !== currentTeamData.sessionCode){
     showMsg(msg, "err", "الكود اللي كتبته غلط، حاول تاني."); return;
@@ -797,32 +799,38 @@ function tryMasterGateLogin(){
 }
 
 function openAdminTeamPicker(){
-  const list = document.getElementById("adminPickList");
-  list.innerHTML = TEAMS.map(t => `
-    <div class="pick-item" onclick="pickAdminTeam('${t.id}')">
-      <span class="name">${t.name}</span><span>›</span>
-    </div>
-  `).join("");
+  const select = document.getElementById("adminTeamSelect");
+  select.innerHTML = `<option value="">— اختر تيم —</option>` +
+    `<option value="__global__">🌍 كل التيمات دفعة واحدة (كود جلسة موحّد)</option>` +
+    TEAMS.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+  select.value = "";
+  document.getElementById("adminTeamSection").style.display = "none";
+  document.getElementById("adminGlobalSection").style.display = "none";
   document.getElementById("newMasterCodeInput").value = "";
   document.getElementById("changeMasterCodeMsg").className = "msg";
+  stopGlobalCountdown();
   showView("view-admin-pick");
   location.hash = "admin";
 }
-async function pickAdminTeam(teamId){
-  adminPickedTeamId = teamId;
-  try{
-    await ensureTeamDoc(teamId);
-    await enterAdminPanel(teamId);
-  }catch(e){
-    console.error(e);
-    alert("حصل خطأ في الاتصال، حاول تاني.");
-  }
-}
 
-async function pickGlobalAdmin(){
-  adminPickedTeamId = null;
+async function onAdminTeamSelectChange(){
+  const val = document.getElementById("adminTeamSelect").value;
+  document.getElementById("adminTeamSection").style.display = "none";
+  document.getElementById("adminGlobalSection").style.display = "none";
+  stopGlobalCountdown();
+  if(!val) return;
+
   try{
-    await enterGlobalAdminPanel();
+    if(val === "__global__"){
+      adminPickedTeamId = null;
+      document.getElementById("adminGlobalSection").style.display = "block";
+      await enterGlobalAdminPanel();
+    } else {
+      adminPickedTeamId = val;
+      document.getElementById("adminTeamSection").style.display = "block";
+      await ensureTeamDoc(val);
+      await enterAdminPanel(val);
+    }
   }catch(e){
     console.error(e);
     alert("حصل خطأ في الاتصال، حاول تاني.");
@@ -850,10 +858,27 @@ async function enterAdminPanel(teamId){
   document.getElementById("adminTeamTitle").textContent = "لوحة تحكم — " + team.name;
   document.getElementById("adminTodayLabel").textContent = todayDisplay();
   document.getElementById("adminMarkMsg").className = "msg";
+  document.getElementById("adminNewMemberInput").value = "";
+  document.getElementById("adminAddMemberMsg").className = "msg";
   await ensureTeamDoc(teamId);
   await loadMembers(teamId);
-  showView("view-admin-panel");
-  location.hash = "admin/" + teamId;
+}
+
+async function adminAddMember(){
+  const msg = document.getElementById("adminAddMemberMsg");
+  const name = document.getElementById("adminNewMemberInput").value.trim();
+  if(!name){ showMsg(msg,"err","اكتب اسم العضو الأول."); return; }
+  const dup = currentMembers.find(m => m.name.trim().toLowerCase() === name.toLowerCase());
+  if(dup){ showMsg(msg,"err","في عضو بنفس الاسم موجود بالفعل."); return; }
+  try{
+    await db.collection("teams").doc(currentTeamId).collection("members").add({ name, attendanceCount: 0 });
+    document.getElementById("adminNewMemberInput").value = "";
+    showMsg(msg,"ok", `تمت إضافة ${name} بنجاح ✓`);
+    await loadMembers(currentTeamId);
+  }catch(e){
+    console.error(e);
+    showMsg(msg,"err","حصل خطأ أثناء الإضافة، حاول تاني.");
+  }
 }
 
 // ===== لوحة التحكم العامة: تفعيل كود جلسة واحد لكل التيمات دفعة واحدة =====
@@ -862,7 +887,7 @@ async function ensureSingleTeamDoc(teamId){
   const snap = await ref.get();
   if(!snap.exists){
     const team = TEAMS.find(t=>t.id===teamId);
-    await ref.set({ name: team.name, adminCode: DEFAULT_ADMIN_CODE, sessionCode: "", sessionDate: "" });
+    await ref.set({ name: team.name, adminCode: DEFAULT_ADMIN_CODE, sessionCode: "", sessionDate: "", sessionExpiresAt: 0 });
   }
 }
 
@@ -871,9 +896,8 @@ async function enterGlobalAdminPanel(){
   document.getElementById("globalSessionCodeInput").value = "";
   document.getElementById("globalSessionMsg").className = "msg";
   document.getElementById("teamsCountLabel").textContent = TEAMS.length;
-  showView("view-admin-global");
-  location.hash = "admin-global";
   await renderGlobalTeamsStatus();
+  await resumeGlobalCountdownIfActive();
 }
 
 async function activateGlobalSessionCode(){
@@ -895,16 +919,61 @@ async function applyGlobalSessionCode(code){
   try{
     await Promise.all(TEAMS.map(t => ensureSingleTeamDoc(t.id)));
     const date = todayStr();
+    const expiresAt = Date.now() + SESSION_CODE_TTL_MS;
     const batch = db.batch();
     TEAMS.forEach(t => {
-      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date });
+      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date, sessionExpiresAt: expiresAt });
     });
     await batch.commit();
-    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) النهارده ✓`);
+    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) لمدة 10 دقايق ✓`);
+    startGlobalCountdown(expiresAt);
     await renderGlobalTeamsStatus();
   }catch(e){
     console.error(e);
     showMsg(msg, "err", "حصل خطأ أثناء التفعيل، حاول تاني.");
+  }
+}
+
+let globalCountdownTimer = null;
+function stopGlobalCountdown(){
+  if(globalCountdownTimer){ clearInterval(globalCountdownTimer); globalCountdownTimer = null; }
+  const wrap = document.getElementById("globalCountdownWrap");
+  if(wrap) wrap.style.display = "none";
+}
+function startGlobalCountdown(expiresAt){
+  stopGlobalCountdown();
+  const wrap = document.getElementById("globalCountdownWrap");
+  const label = document.getElementById("globalCountdownLabel");
+  wrap.style.display = "block";
+  function tick(){
+    const remain = expiresAt - Date.now();
+    if(remain <= 0){
+      label.textContent = "00:00";
+      stopGlobalCountdown();
+      const msg = document.getElementById("globalSessionMsg");
+      if(msg) showMsg(msg, "err", "انتهت صلاحية الكود، فعّل كود جديد لو محتاج.");
+      renderGlobalTeamsStatus();
+      return;
+    }
+    const totalSec = Math.ceil(remain / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    label.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  }
+  tick();
+  globalCountdownTimer = setInterval(tick, 1000);
+}
+async function resumeGlobalCountdownIfActive(){
+  try{
+    const snap = await db.collection("teams").doc(TEAMS[0].id).get();
+    const data = snap.exists ? snap.data() : {};
+    if(isSessionCodeActive(data)){
+      startGlobalCountdown(data.sessionExpiresAt);
+    } else {
+      stopGlobalCountdown();
+    }
+  }catch(e){
+    console.error(e);
   }
 }
 
@@ -913,7 +982,7 @@ async function renderGlobalTeamsStatus(){
   const results = await Promise.all(TEAMS.map(async t => {
     const snap = await db.collection("teams").doc(t.id).get();
     const data = snap.exists ? snap.data() : {};
-    const active = !!(data.sessionCode && data.sessionDate === todayStr());
+    const active = isSessionCodeActive(data);
     return { name: t.name, code: active ? data.sessionCode : "—", active };
   }));
   wrap.innerHTML = results.map(r => `
