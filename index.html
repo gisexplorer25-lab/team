@@ -64,16 +64,28 @@
 
   #view-home .lede{margin:0 0 26px;font-size:15px;color:#4a4a42;max-width:560px;}
   .section-label{font-family:'Cairo';font-size:12.5px;font-weight:700;color:#6c665a;margin:0 0 12px;letter-spacing:.3px;}
-  .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;}
+  .team-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
   .team-card{
     background:var(--paper);border:1.5px solid var(--ink);border-radius:var(--radius);
-    padding:20px 18px;cursor:pointer;text-align:right;position:relative;overflow:hidden;
+    padding:12px 10px;cursor:pointer;text-align:right;position:relative;overflow:hidden;
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .team-card:hover{transform:translateY(-3px);box-shadow:4px 4px 0 var(--ink);}
-  .team-card .idx{font-size:12px;color:#8a8374;font-family:'Cairo';font-weight:700;}
-  .team-card .name{font-family:'Cairo';font-weight:800;font-size:19px;margin:6px 0 2px;}
-  .team-card .sub{font-size:12.5px;color:#6c665a;}
+  .team-card .idx{font-size:10.5px;color:#8a8374;font-family:'Cairo';font-weight:700;}
+  .team-card .name{font-family:'Cairo';font-weight:800;font-size:15px;margin:4px 0 1px;}
+  .team-card .sub{font-size:11px;color:#6c665a;}
+
+  @media (max-width:480px){
+    main{padding:18px 14px 60px;}
+    header.top{padding:14px 18px;}
+    #view-home .lede{margin:0 0 14px;font-size:13.5px;}
+    .section-label{margin:0 0 8px;}
+    .team-grid{gap:8px;}
+    .team-card{padding:10px 8px;}
+    .team-card .name{font-size:14px;}
+    .team-card .sub{font-size:10.5px;}
+    .admin-entry{margin-top:18px;padding:14px 16px;}
+  }
 
   .admin-entry{
     margin-top:36px;border:1.5px dashed var(--ink);border-radius:var(--radius);
@@ -284,29 +296,6 @@
       <div class="today" id="adminTodayLabel"></div>
     </div>
 
-    <div class="session-code-box">
-      <div class="lbl">كود جلسة اليوم</div>
-      <div class="code" id="currentSessionCodeDisplay">—</div>
-      <button class="ghost" style="margin-top:12px;background:#f2efe6;" onclick="generateSessionCode()">توليد كود جديد لليوم</button>
-    </div>
-
-    <div class="card">
-      <h3>مسح حضور اليوم بالكامل</h3>
-      <div class="hint" style="margin:0 0 10px;">لو حصل تسجيل غلط (مثلًا وقت تجربة الموقع)، الزرار ده بيمسح كل سجلات حضور النهارده بس لهذا التيم، وبيرجّع عداد "مرات الحضور" لكل عضو زي ما كان.</div>
-      <button class="ghost" style="border-color:var(--red);color:var(--red);" onclick="adminClearTodayAttendance()">مسح حضور اليوم لكل التيم</button>
-      <div class="msg" id="adminClearMsg"></div>
-    </div>
-
-    <div class="card">
-      <h3>إضافة عضو جديد للتيم</h3>
-      <div class="row">
-        <input type="text" id="adminNewMemberInput" placeholder="اسم العضو">
-        <button class="primary" style="margin-top:0;flex:0 0 auto;" onclick="adminAddMember()">إضافة</button>
-      </div>
-      <div class="hint">الأعضاء اللي تضيفهم هنا هيظهروا في قايمة "اختر اسمك" لهذا التيم.</div>
-      <div class="msg" id="adminAddMsg"></div>
-    </div>
-
     <div class="card">
       <h3>تسجيل حضور يدوي لأي عضو في أي يوم</h3>
       <div class="row">
@@ -315,12 +304,6 @@
       </div>
       <button class="primary" onclick="adminMarkAttendance()">تسجيل الحضور يدويًا</button>
       <div class="msg" id="adminMarkMsg"></div>
-    </div>
-
-    <div class="card">
-      <h3>أعضاء التيم (<span id="memberCountLabel">0</span>)</h3>
-      <div id="memberList"></div>
-      <div class="empty" id="memberListEmpty" style="display:none;">لسه مفيش أعضاء</div>
     </div>
 
     <div class="card">
@@ -569,7 +552,6 @@ async function loadMembers(teamId){
   adminSel.innerHTML = currentMembers.map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("")
     || `<option value="">لا يوجد أعضاء بعد</option>`;
   document.getElementById("adminMarkDate").value = todayStr();
-  renderAdminMemberList();
 }
 
 async function submitAttendance(){
@@ -833,31 +815,13 @@ async function enterAdminPanel(teamId){
   document.getElementById("adminTodayLabel").textContent = todayDisplay();
   document.getElementById("currentAdminCodeInput").value = "";
   document.getElementById("newAdminCodeInput").value = "";
-  document.getElementById("adminNewMemberInput").value = "";
-  ["adminAddMsg","adminMarkMsg","changeCodeMsg","adminClearMsg"].forEach(id=>{
+  ["adminMarkMsg","changeCodeMsg"].forEach(id=>{
     document.getElementById(id).className = "msg";
   });
   await ensureTeamDoc(teamId);
   await loadMembers(teamId);
-  renderSessionCodeDisplay();
   showView("view-admin-panel");
   location.hash = "admin/" + teamId;
-}
-
-function renderSessionCodeDisplay(){
-  document.getElementById("currentSessionCodeDisplay").textContent =
-    (currentTeamData.sessionCode && currentTeamData.sessionDate === todayStr())
-      ? currentTeamData.sessionCode : "—";
-}
-
-function generateSessionCode(){
-  const code = String(Math.floor(1000 + Math.random()*9000));
-  db.collection("teams").doc(currentTeamId).update({
-    sessionCode: code, sessionDate: todayStr()
-  }).then(async ()=>{
-    await ensureTeamDoc(currentTeamId);
-    renderSessionCodeDisplay();
-  });
 }
 
 // ===== لوحة التحكم العامة: تفعيل كود جلسة واحد لكل التيمات دفعة واحدة =====
@@ -928,65 +892,6 @@ async function renderGlobalTeamsStatus(){
   `).join("");
 }
 
-async function adminClearTodayAttendance(){
-  const msg = document.getElementById("adminClearMsg");
-  msg.className = "msg";
-  const snap = await db.collection("teams").doc(currentTeamId).collection("attendance")
-    .where("date","==",todayStr()).get();
-  if(snap.empty){
-    showMsg(msg, "ok", "مفيش حضور مسجّل النهارده أصلًا لهذا التيم.");
-    return;
-  }
-  if(!confirm(`هيتمسح حضور ${snap.size} تسجيل النهارده لهذا التيم بالكامل، متأكد؟`)) return;
-
-  try{
-    const countByMember = {};
-    snap.docs.forEach(d => {
-      const mid = d.data().memberId;
-      countByMember[mid] = (countByMember[mid] || 0) + 1;
-    });
-
-    const batch = db.batch();
-    snap.docs.forEach(d => batch.delete(d.ref));
-    Object.keys(countByMember).forEach(mid => {
-      batch.update(db.collection("teams").doc(currentTeamId).collection("members").doc(mid), {
-        attendanceCount: FieldValue.increment(-countByMember[mid])
-      });
-    });
-    await batch.commit();
-
-    showMsg(msg, "ok", `تم مسح ${snap.size} تسجيل حضور لليوم ✓`);
-    await loadMembers(currentTeamId);
-  }catch(e){
-    console.error(e);
-    showMsg(msg, "err", "حصل خطأ أثناء المسح، حاول تاني.");
-  }
-}
-
-async function adminAddMember(){
-  const input = document.getElementById("adminNewMemberInput");
-  const msg = document.getElementById("adminAddMsg");
-  const name = input.value.trim();
-  if(!name){ showMsg(msg,"err","اكتب اسم العضو أولاً."); return; }
-  const dup = currentMembers.find(m=>m.name.trim().toLowerCase()===name.toLowerCase());
-  if(dup){ showMsg(msg,"err","العضو ده موجود بالفعل."); return; }
-  await db.collection("teams").doc(currentTeamId).collection("members").add({ name, attendanceCount: 0 });
-  input.value = "";
-  showMsg(msg,"ok","تمت الإضافة، وهيظهر الاسم في قايمة الطلاب لهذا التيم.");
-  await loadMembers(currentTeamId);
-}
-
-async function adminRemoveMember(memberId){
-  if(!confirm("متأكد إنك عايز تشيل العضو ده؟ هيتشال سجل حضوره كمان.")) return;
-  const attSnap = await db.collection("teams").doc(currentTeamId).collection("attendance")
-    .where("memberId","==",memberId).get();
-  const batch = db.batch();
-  attSnap.docs.forEach(d=>batch.delete(d.ref));
-  batch.delete(db.collection("teams").doc(currentTeamId).collection("members").doc(memberId));
-  await batch.commit();
-  await loadMembers(currentTeamId);
-}
-
 async function adminMarkAttendance(){
   const msg = document.getElementById("adminMarkMsg");
   const memberId = document.getElementById("adminMarkMemberSelect").value;
@@ -1009,23 +914,6 @@ async function adminMarkAttendance(){
   });
   showMsg(msg,"ok", `تم تسجيل حضور ${member.name} بتاريخ ${date}.`);
   await loadMembers(currentTeamId);
-}
-
-function renderAdminMemberList(){
-  const wrap = document.getElementById("memberList");
-  const empty = document.getElementById("memberListEmpty");
-  document.getElementById("memberCountLabel").textContent = currentMembers.length;
-  if(currentMembers.length===0){ wrap.innerHTML=""; empty.style.display="block"; return; }
-  empty.style.display = "none";
-  wrap.innerHTML = currentMembers.map(m=>`
-    <div class="member-row">
-      <div>
-        <div class="mname">${escapeHtml(m.name)}</div>
-        <div class="mcount">${m.attendanceCount||0} مرة حضور</div>
-      </div>
-      <button class="danger" onclick="adminRemoveMember('${m.id}')">حذف</button>
-    </div>
-  `).join("");
 }
 
 async function changeAdminCode(){
