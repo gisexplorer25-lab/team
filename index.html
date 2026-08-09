@@ -258,6 +258,12 @@
   <div class="view" id="view-admin-pick">
     <p class="section-label">لوحة تحكم المسؤول</p>
     <h2 class="display" style="margin:0 0 18px;">انت عايز تدخل على تيم مين؟</h2>
+    <div class="pick-list" style="margin-bottom:22px;">
+      <div class="pick-item" style="border-color:var(--green-deep);background:var(--paper-2);" onclick="pickGlobalAdmin()">
+        <span class="name">🌍 كل التيمات دفعة واحدة (كود جلسة موحّد)</span><span>›</span>
+      </div>
+    </div>
+    <p class="section-label">أو ادخل على تيم واحد بس</p>
     <div class="pick-list" id="adminPickList"></div>
   </div>
 
@@ -328,6 +334,30 @@
     </div>
   </div>
 
+  <div class="view" id="view-admin-global">
+    <div class="team-hero">
+      <h2>🌍 لوحة التحكم العامة — كل التيمات</h2>
+      <div class="today" id="globalTodayLabel"></div>
+    </div>
+
+    <div class="card">
+      <h3>تفعيل كود جلسة موحّد لكل التيمات</h3>
+      <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة، بدل ما تدخل كل تيم لوحده.</div>
+      <label>كود الجلسة</label>
+      <input type="text" id="globalSessionCodeInput" placeholder="مثال: 5731">
+      <div class="row">
+        <button class="primary" style="flex:0 0 auto;margin-top:0;" onclick="activateGlobalSessionCode()">تفعيل الكود لكل التيمات</button>
+        <button class="ghost" style="flex:0 0 auto;" onclick="generateGlobalSessionCode()">توليد كود عشوائي وتفعيله</button>
+      </div>
+      <div class="msg" id="globalSessionMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>حالة كود اليوم في كل تيم</h3>
+      <div id="globalTeamsStatus"><div class="empty">بيتحمّل...</div></div>
+    </div>
+  </div>
+
 </main>
 
 <footer>سجلّ حضور فرق الإرشاد — البيانات مخزّنة على Firebase</footer>
@@ -357,7 +387,7 @@ if ("serviceWorker" in navigator) {
     // app ships as one HTML file. It caches the page shell + Firebase SDK so the app still
     // opens instantly on weak or interrupted connections.
     const swSource = [
-      "const CACHE_NAME = 'hodoor-irshad-v2';",
+      "const CACHE_NAME = 'hodoor-irshad-v3';",
       "self.addEventListener('activate', (event) => {",
       "  event.waitUntil(caches.keys().then((keys) =>",
       "    Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))",
@@ -406,6 +436,7 @@ let currentTeamId = null;
 let currentTeamData = null;
 let currentMembers = [];
 let adminPickedTeamId = null;
+let adminLoginMode = "team"; // "team" أو "global" — بيحدد شكل تسجيل الدخول
 
 function todayStr(){
   const d = new Date();
@@ -757,6 +788,7 @@ function openAdminTeamPicker(){
 }
 async function pickAdminTeam(teamId){
   adminPickedTeamId = teamId;
+  adminLoginMode = "team";
   const team = TEAMS.find(t=>t.id===teamId);
   document.getElementById("adminLoginTeamLabel").textContent = "لوحة تحكم المسؤول — " + team.name;
   document.getElementById("adminCodeInput").value = "";
@@ -765,9 +797,28 @@ async function pickAdminTeam(teamId){
   showView("view-admin-login");
 }
 
+function pickGlobalAdmin(){
+  adminPickedTeamId = null;
+  adminLoginMode = "global";
+  document.getElementById("adminLoginTeamLabel").textContent = "لوحة التحكم العامة — كل التيمات";
+  document.getElementById("adminCodeInput").value = "";
+  document.getElementById("adminLoginMsg").className = "msg";
+  showView("view-admin-login");
+}
+
 async function tryAdminLogin(){
   const msg = document.getElementById("adminLoginMsg");
   const code = document.getElementById("adminCodeInput").value.trim();
+
+  if(adminLoginMode === "global"){
+    if(code && code === MASTER_ADMIN_CODE){
+      await enterGlobalAdminPanel();
+    } else {
+      showMsg(msg, "err", "الكود المسؤول العام غلط. لازم تستخدم الكود الرئيسي فقط.");
+    }
+    return;
+  }
+
   if(code && (code === currentTeamData.adminCode || code === MASTER_ADMIN_CODE)){
     await enterAdminPanel(adminPickedTeamId);
   } else {
@@ -807,6 +858,74 @@ function generateSessionCode(){
     await ensureTeamDoc(currentTeamId);
     renderSessionCodeDisplay();
   });
+}
+
+// ===== لوحة التحكم العامة: تفعيل كود جلسة واحد لكل التيمات دفعة واحدة =====
+async function ensureSingleTeamDoc(teamId){
+  const ref = db.collection("teams").doc(teamId);
+  const snap = await ref.get();
+  if(!snap.exists){
+    const team = TEAMS.find(t=>t.id===teamId);
+    await ref.set({ name: team.name, adminCode: DEFAULT_ADMIN_CODE, sessionCode: "", sessionDate: "" });
+  }
+}
+
+async function enterGlobalAdminPanel(){
+  document.getElementById("globalTodayLabel").textContent = todayDisplay();
+  document.getElementById("globalSessionCodeInput").value = "";
+  document.getElementById("globalSessionMsg").className = "msg";
+  document.getElementById("teamsCountLabel").textContent = TEAMS.length;
+  showView("view-admin-global");
+  location.hash = "admin-global";
+  await renderGlobalTeamsStatus();
+}
+
+async function activateGlobalSessionCode(){
+  const msg = document.getElementById("globalSessionMsg");
+  const code = document.getElementById("globalSessionCodeInput").value.trim();
+  if(!code){ showMsg(msg, "err", "اكتب الكود الأول."); return; }
+  await applyGlobalSessionCode(code);
+}
+
+async function generateGlobalSessionCode(){
+  const code = String(Math.floor(1000 + Math.random()*9000));
+  document.getElementById("globalSessionCodeInput").value = code;
+  await applyGlobalSessionCode(code);
+}
+
+async function applyGlobalSessionCode(code){
+  const msg = document.getElementById("globalSessionMsg");
+  msg.className = "msg";
+  try{
+    await Promise.all(TEAMS.map(t => ensureSingleTeamDoc(t.id)));
+    const date = todayStr();
+    const batch = db.batch();
+    TEAMS.forEach(t => {
+      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date });
+    });
+    await batch.commit();
+    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) النهارده ✓`);
+    await renderGlobalTeamsStatus();
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء التفعيل، حاول تاني.");
+  }
+}
+
+async function renderGlobalTeamsStatus(){
+  const wrap = document.getElementById("globalTeamsStatus");
+  const results = await Promise.all(TEAMS.map(async t => {
+    const snap = await db.collection("teams").doc(t.id).get();
+    const data = snap.exists ? snap.data() : {};
+    const active = !!(data.sessionCode && data.sessionDate === todayStr());
+    return { name: t.name, code: active ? data.sessionCode : "—", active };
+  }));
+  wrap.innerHTML = results.map(r => `
+    <div class="member-row">
+      <div class="mname">${escapeHtml(r.name)}</div>
+      <div class="mcount" style="${r.active ? "color:var(--green-deep);font-weight:800;" : ""}">${escapeHtml(r.code)}</div>
+    </div>
+  `).join("");
 }
 
 async function adminClearTodayAttendance(){
