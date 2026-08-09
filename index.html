@@ -114,6 +114,8 @@
     padding:22px;margin-bottom:18px;
   }
   .card h3{margin:0 0 14px;font-family:'Cairo';font-size:16px;}
+  .card-header-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .card-header-row h3{margin:0;}
   label{display:block;font-size:13px;margin:12px 0 6px;color:#4a4a42;}
   input[type=text],input[type=password],input[type=date],select{
     width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;
@@ -217,7 +219,10 @@
 
     <div class="panel active" id="panel-attend">
       <div class="card">
-        <h3>تسجيل الحضور</h3>
+        <div class="card-header-row">
+          <h3 style="margin:0;">تسجيل الحضور</h3>
+          <button class="ghost" id="leaderToggleBtn" style="flex:0 0 auto;" onclick="toggleLeaderForm()">👑 أنا الليدر</button>
+        </div>
         <div id="attendLockedMsg" class="msg info" style="display:none;"></div>
         <div id="attendFormWrap">
           <label>كود الجلسة (تعلنه إدارة التيم)</label>
@@ -227,13 +232,9 @@
           <button class="primary" id="submitAttendBtn" onclick="submitAttendance()">تسجيل حضوري</button>
         </div>
         <div class="msg" id="attendMsg"></div>
-      </div>
 
-      <div class="card">
-        <h3>👑 أنا ليدر التيم — سجّل حضور اللي حاضرين بس</h3>
-        <div class="hint" style="margin:0 0 10px;">لو انت ليدر التيم، تقدر تحدد مين الحاضر النهارده من قايمة الأعضاء، وتسجل حضورهم كلهم دفعة واحدة بنفس كود الجلسة اللي في لوحة تحكم المسؤول.</div>
-        <button class="ghost" id="leaderToggleBtn" onclick="toggleLeaderForm()">أنا الليدر</button>
-        <div id="leaderFormWrap" style="display:none;margin-top:14px;">
+        <div id="leaderFormWrap" style="display:none;margin-top:20px;padding-top:18px;border-top:1.5px dashed var(--line);">
+          <div class="hint" style="margin:0 0 10px;">حدد مين الحاضر النهارده من قايمة الأعضاء، وسجل حضورهم كلهم دفعة واحدة بنفس كود الجلسة اللي في لوحة تحكم المسؤول.</div>
           <label>حدد الحاضرين النهارده</label>
           <div class="row" style="margin-bottom:8px;">
             <button class="ghost" type="button" style="flex:0 0 auto;" onclick="leaderSelectAll(true)">تحديد الكل</button>
