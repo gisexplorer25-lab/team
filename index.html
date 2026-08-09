@@ -195,7 +195,7 @@
     <p class="section-label">التيمات</p>
     <div class="team-grid" id="teamGrid"></div>
 
-    <div class="admin-entry" onclick="openAdminTeamPicker()">
+    <div class="admin-entry" onclick="openAdminGate()">
       <div>
         <div class="t">لوحة تحكم المسؤول</div>
         <div class="s">لإدارة أي تيم — إضافة أعضاء، أكواد الجلسات، وتسجيل الحضور اليدوي</div>
@@ -267,6 +267,17 @@
     </div>
   </div>
 
+  <div class="view" id="view-admin-gate">
+    <p class="section-label">لوحة تحكم المسؤول</p>
+    <div class="card" style="max-width:400px;">
+      <h3>تسجيل دخول المسؤول</h3>
+      <label>كود دخول المسؤول</label>
+      <input type="password" id="masterGateInput" placeholder="اكتب كود دخول المسؤول">
+      <button class="primary" onclick="tryMasterGateLogin()">دخول</button>
+      <div class="msg" id="masterGateMsg"></div>
+    </div>
+  </div>
+
   <div class="view" id="view-admin-pick">
     <p class="section-label">لوحة تحكم المسؤول</p>
     <h2 class="display" style="margin:0 0 18px;">انت عايز تدخل على تيم مين؟</h2>
@@ -276,17 +287,15 @@
       </div>
     </div>
     <p class="section-label">أو ادخل على تيم واحد بس</p>
-    <div class="pick-list" id="adminPickList"></div>
-  </div>
+    <div class="pick-list" id="adminPickList" style="margin-bottom:22px;"></div>
 
-  <div class="view" id="view-admin-login">
-    <p class="section-label" id="adminLoginTeamLabel"></p>
-    <div class="card" style="max-width:400px;">
-      <h3>دخول مسؤول التيم</h3>
-      <label>كود المسؤول</label>
-      <input type="password" id="adminCodeInput" placeholder="كود المسؤول الخاص بالتيم">
-      <button class="primary" onclick="tryAdminLogin()">دخول</button>
-      <div class="msg" id="adminLoginMsg"></div>
+    <div class="card">
+      <h3>تغيير كود دخول المسؤول</h3>
+      <div class="hint" style="margin:0 0 10px;">كود واحد بس بيشتغل مع كل التيمات — غيّره من هنا مرة واحدة وهيتطبق على طول، من غير ما تدخل كل تيم لوحده.</div>
+      <label>كود الدخول الجديد</label>
+      <input type="text" id="newMasterCodeInput" placeholder="اكتب الكود الجديد">
+      <button class="primary" onclick="changeMasterAdminCode()">حفظ الكود الجديد</button>
+      <div class="msg" id="changeMasterCodeMsg"></div>
     </div>
   </div>
 
@@ -306,15 +315,6 @@
       <div class="msg" id="adminMarkMsg"></div>
     </div>
 
-    <div class="card">
-      <h3>تغيير كود المسؤول</h3>
-      <label>كود المسؤول الحالي</label>
-      <input type="password" id="currentAdminCodeInput" placeholder="اكتب الكود الحالي للتأكيد">
-      <label>كود المسؤول الجديد</label>
-      <input type="text" id="newAdminCodeInput" placeholder="اكتب الكود الجديد">
-      <button class="primary" onclick="changeAdminCode()">حفظ الكود الجديد</button>
-      <div class="msg" id="changeCodeMsg"></div>
-    </div>
   </div>
 
   <div class="view" id="view-admin-global">
@@ -411,7 +411,7 @@ const TEAMS = [
   { id: "italian",   name: "الإيطالي" },
 ];
 const DEFAULT_ADMIN_CODE = "6867791";
-const MASTER_ADMIN_CODE = "6867791"; // كود رئيسي بيشتغل مع كل التيمات دايمًا
+let MASTER_ADMIN_CODE = DEFAULT_ADMIN_CODE; // كود دخول المسؤول — بيتحمّل من Firestore وبيشتغل مع كل التيمات
 const LOCK_KEY = "attendanceDeviceLock";
 const LOCK_MS = 24 * 60 * 60 * 1000;
 
@@ -419,7 +419,18 @@ let currentTeamId = null;
 let currentTeamData = null;
 let currentMembers = [];
 let adminPickedTeamId = null;
-let adminLoginMode = "team"; // "team" أو "global" — بيحدد شكل تسجيل الدخول
+
+// كود دخول المسؤول متخزّن مركزيًا في config/app بدل ما يتكرر جوه كل تيم
+async function ensureMasterConfig(){
+  const ref = db.collection("config").doc("app");
+  const snap = await ref.get();
+  if(!snap.exists){
+    await ref.set({ masterAdminCode: DEFAULT_ADMIN_CODE });
+    MASTER_ADMIN_CODE = DEFAULT_ADMIN_CODE;
+  } else {
+    MASTER_ADMIN_CODE = snap.data().masterAdminCode || DEFAULT_ADMIN_CODE;
+  }
+}
 
 function todayStr(){
   const d = new Date();
@@ -758,6 +769,24 @@ function renderLeaderboard(){
   `).join("");
 }
 
+async function openAdminGate(){
+  await ensureMasterConfig();
+  document.getElementById("masterGateInput").value = "";
+  document.getElementById("masterGateMsg").className = "msg";
+  showView("view-admin-gate");
+  location.hash = "admin";
+}
+
+function tryMasterGateLogin(){
+  const msg = document.getElementById("masterGateMsg");
+  const code = document.getElementById("masterGateInput").value.trim();
+  if(code && code === MASTER_ADMIN_CODE){
+    openAdminTeamPicker();
+  } else {
+    showMsg(msg, "err", "كود الدخول غلط.");
+  }
+}
+
 function openAdminTeamPicker(){
   const list = document.getElementById("adminPickList");
   list.innerHTML = TEAMS.map(t => `
@@ -765,46 +794,34 @@ function openAdminTeamPicker(){
       <span class="name">${t.name}</span><span>›</span>
     </div>
   `).join("");
+  document.getElementById("newMasterCodeInput").value = "";
+  document.getElementById("changeMasterCodeMsg").className = "msg";
   showView("view-admin-pick");
   location.hash = "admin";
 }
 async function pickAdminTeam(teamId){
   adminPickedTeamId = teamId;
-  adminLoginMode = "team";
-  const team = TEAMS.find(t=>t.id===teamId);
-  document.getElementById("adminLoginTeamLabel").textContent = "لوحة تحكم المسؤول — " + team.name;
-  document.getElementById("adminCodeInput").value = "";
-  document.getElementById("adminLoginMsg").className = "msg";
   await ensureTeamDoc(teamId);
-  showView("view-admin-login");
+  await enterAdminPanel(teamId);
 }
 
-function pickGlobalAdmin(){
+async function pickGlobalAdmin(){
   adminPickedTeamId = null;
-  adminLoginMode = "global";
-  document.getElementById("adminLoginTeamLabel").textContent = "لوحة التحكم العامة — كل التيمات";
-  document.getElementById("adminCodeInput").value = "";
-  document.getElementById("adminLoginMsg").className = "msg";
-  showView("view-admin-login");
+  await enterGlobalAdminPanel();
 }
 
-async function tryAdminLogin(){
-  const msg = document.getElementById("adminLoginMsg");
-  const code = document.getElementById("adminCodeInput").value.trim();
-
-  if(adminLoginMode === "global"){
-    if(code && code === MASTER_ADMIN_CODE){
-      await enterGlobalAdminPanel();
-    } else {
-      showMsg(msg, "err", "الكود المسؤول العام غلط. لازم تستخدم الكود الرئيسي فقط.");
-    }
-    return;
-  }
-
-  if(code && (code === currentTeamData.adminCode || code === MASTER_ADMIN_CODE)){
-    await enterAdminPanel(adminPickedTeamId);
-  } else {
-    showMsg(msg, "err", "كود المسؤول غير صحيح.");
+async function changeMasterAdminCode(){
+  const msg = document.getElementById("changeMasterCodeMsg");
+  const next = document.getElementById("newMasterCodeInput").value.trim();
+  if(!next || next.length < 4){ showMsg(msg,"err","اكتب كود جديد من 4 حروف/أرقام على الأقل."); return; }
+  try{
+    await db.collection("config").doc("app").set({ masterAdminCode: next }, { merge:true });
+    MASTER_ADMIN_CODE = next;
+    document.getElementById("newMasterCodeInput").value = "";
+    showMsg(msg,"ok","تم تغيير كود الدخول بنجاح، وهيشتغل على طول مع كل التيمات.");
+  }catch(e){
+    console.error(e);
+    showMsg(msg,"err","حصل خطأ أثناء الحفظ، حاول تاني.");
   }
 }
 
@@ -813,11 +830,7 @@ async function enterAdminPanel(teamId){
   const team = TEAMS.find(t=>t.id===teamId);
   document.getElementById("adminTeamTitle").textContent = "لوحة تحكم — " + team.name;
   document.getElementById("adminTodayLabel").textContent = todayDisplay();
-  document.getElementById("currentAdminCodeInput").value = "";
-  document.getElementById("newAdminCodeInput").value = "";
-  ["adminMarkMsg","changeCodeMsg"].forEach(id=>{
-    document.getElementById(id).className = "msg";
-  });
+  document.getElementById("adminMarkMsg").className = "msg";
   await ensureTeamDoc(teamId);
   await loadMembers(teamId);
   showView("view-admin-panel");
@@ -916,27 +929,11 @@ async function adminMarkAttendance(){
   await loadMembers(currentTeamId);
 }
 
-async function changeAdminCode(){
-  const msg = document.getElementById("changeCodeMsg");
-  const current = document.getElementById("currentAdminCodeInput").value.trim();
-  const next = document.getElementById("newAdminCodeInput").value.trim();
-  if(!current){ showMsg(msg,"err","اكتب كود المسؤول الحالي للتأكيد."); return; }
-  if(current !== currentTeamData.adminCode && current !== MASTER_ADMIN_CODE){
-    showMsg(msg,"err","كود المسؤول الحالي اللي كتبته غلط."); return;
-  }
-  if(!next || next.length < 4){ showMsg(msg,"err","اكتب كود جديد من 4 حروف/أرقام على الأقل."); return; }
-  await db.collection("teams").doc(currentTeamId).update({ adminCode: next });
-  currentTeamData.adminCode = next;
-  document.getElementById("currentAdminCodeInput").value = "";
-  document.getElementById("newAdminCodeInput").value = "";
-  showMsg(msg,"ok","تم تغيير كود المسؤول بنجاح.");
-}
-
 renderHome();
 if(location.hash.startsWith("#team/")){
   openTeam(location.hash.replace("#team/",""));
 } else if(location.hash === "#admin" || location.hash.startsWith("#admin/")){
-  openAdminTeamPicker();
+  openAdminGate();
 }
 </script>
 </body>
