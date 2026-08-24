@@ -451,7 +451,7 @@
 
       <div class="card">
         <h3>تفعيل كود جلسة موحّد لكل التيمات</h3>
-        <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة. الكود بيفضل شغال 10 دقايق بس من وقت التفعيل وبعدها بيبقى مش صالح.</div>
+        <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة. الكود بيفضل شغال من غير أي وقت محدد لحد ما تلغي تفعيله بنفسك.</div>
         <label>كود الجلسة</label>
         <div class="code-boxes" data-code-boxes-for="globalSessionCodeInput">
           <input type="text" inputmode="numeric" maxlength="1" class="code-box">
@@ -465,14 +465,15 @@
           <button class="ghost" style="flex:0 0 auto;margin-top:16px;" onclick="generateGlobalSessionCode()">توليد كود عشوائي وتفعيله</button>
         </div>
         <div class="msg" id="globalSessionMsg"></div>
-        <div id="globalCountdownWrap" style="display:none;margin-top:14px;">
-          <div class="hint" style="margin:0 0 8px;">الكود النشط دلوقتي — الوقت المتبقي: <strong id="globalCountdownLabel">10:00</strong></div>
+        <div id="globalActiveWrap" style="display:none;margin-top:14px;">
+          <div class="hint" style="margin:0 0 8px;">الكود ده نشط دلوقتي لكل التيمات ومفيش له وقت انتهاء — هيفضل شغال لحد ما تدوس "إلغاء التفعيل".</div>
           <div class="code-boxes readonly" id="globalActiveCodeDisplay">
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
           </div>
+          <button class="ghost" style="flex:0 0 auto;margin-top:14px;" onclick="deactivateGlobalSessionCode()">إلغاء تفعيل الكود لكل التيمات</button>
         </div>
       </div>
 
@@ -676,11 +677,10 @@ function initCodeBoxes(){
   });
 }
 
-const SESSION_CODE_TTL_MS = 10 * 60 * 1000; // كود الجلسة بيفضل شغال 10 دقايق بس من وقت التفعيل
+const SESSION_CODE_TTL_MS = 10 * 60 * 1000; // (لم تعد مستخدمة لإنهاء صلاحية كود اليوم الموحّد — الكود بيفضل شغال لحد ما يتم إلغاء تفعيله يدويًا)
 function isSessionCodeActive(teamData){
   if(!teamData) return false;
   if(!teamData.sessionCode || teamData.sessionDate !== todayStr()) return false;
-  if(!teamData.sessionExpiresAt || Date.now() > teamData.sessionExpiresAt) return false;
   return true;
 }
 
@@ -725,7 +725,7 @@ function showView(id){
 function goHome(){
   currentTeamId = null;
   adminPickedTeamId = null;
-  stopGlobalCountdown();
+  hideGlobalActivePanel();
   showView("view-home");
   location.hash = "";
   refreshHomeBadges();
@@ -1093,7 +1093,7 @@ function openAdminTeamPicker(){
   document.getElementById("adminGlobalSection").style.display = "none";
   document.getElementById("newMasterCodeInput").value = "";
   document.getElementById("changeMasterCodeMsg").className = "msg";
-  stopGlobalCountdown();
+  hideGlobalActivePanel();
   showView("view-admin-pick");
   location.hash = "admin";
 }
@@ -1102,7 +1102,7 @@ async function onAdminTeamSelectChange(){
   const val = document.getElementById("adminTeamSelect").value;
   document.getElementById("adminTeamSection").style.display = "none";
   document.getElementById("adminGlobalSection").style.display = "none";
-  stopGlobalCountdown();
+  hideGlobalActivePanel();
   if(!val) return;
 
   try{
@@ -1297,18 +1297,39 @@ async function applyGlobalSessionCode(code){
     showLoading();
     await Promise.all(TEAMS.map(t => ensureSingleTeamDoc(t.id)));
     const date = todayStr();
-    const expiresAt = Date.now() + SESSION_CODE_TTL_MS;
     const batch = db.batch();
     TEAMS.forEach(t => {
-      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date, sessionExpiresAt: expiresAt });
+      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date, sessionExpiresAt: 0 });
     });
     await batch.commit();
-    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) لمدة 10 دقايق ✓`);
-    startGlobalCountdown(expiresAt, code);
+    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) ✓`);
+    showGlobalActivePanel(code);
     await renderGlobalTeamsStatus();
   }catch(e){
     console.error(e);
     showMsg(msg, "err", "حصل خطأ أثناء التفعيل، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
+
+async function deactivateGlobalSessionCode(){
+  const msg = document.getElementById("globalSessionMsg");
+  msg.className = "msg";
+  try{
+    showLoading();
+    const batch = db.batch();
+    TEAMS.forEach(t => {
+      batch.update(db.collection("teams").doc(t.id), { sessionCode: "", sessionDate: "", sessionExpiresAt: 0 });
+    });
+    await batch.commit();
+    hideGlobalActivePanel();
+    setCodeBoxesValue("globalSessionCodeInput", "");
+    showMsg(msg, "ok", "تم إلغاء تفعيل الكود لكل التيمات ✓");
+    await renderGlobalTeamsStatus();
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء إلغاء التفعيل، حاول تاني.");
   }finally{
     hideLoading();
   }
@@ -1323,45 +1344,24 @@ function setReadonlyCodeDisplay(wrapId, code){
   wrap.classList.toggle("expired", !code);
 }
 
-let globalCountdownTimer = null;
-function stopGlobalCountdown(){
-  if(globalCountdownTimer){ clearInterval(globalCountdownTimer); globalCountdownTimer = null; }
-  const wrap = document.getElementById("globalCountdownWrap");
+function hideGlobalActivePanel(){
+  const wrap = document.getElementById("globalActiveWrap");
   if(wrap) wrap.style.display = "none";
   setReadonlyCodeDisplay("globalActiveCodeDisplay", "");
 }
-function startGlobalCountdown(expiresAt, code){
-  stopGlobalCountdown();
-  const wrap = document.getElementById("globalCountdownWrap");
-  const label = document.getElementById("globalCountdownLabel");
+function showGlobalActivePanel(code){
+  const wrap = document.getElementById("globalActiveWrap");
   wrap.style.display = "block";
-  if(code) setReadonlyCodeDisplay("globalActiveCodeDisplay", code);
-  function tick(){
-    const remain = expiresAt - Date.now();
-    if(remain <= 0){
-      label.textContent = "00:00";
-      stopGlobalCountdown();
-      const msg = document.getElementById("globalSessionMsg");
-      if(msg) showMsg(msg, "err", "انتهت صلاحية الكود، فعّل كود جديد لو محتاج.");
-      renderGlobalTeamsStatus();
-      return;
-    }
-    const totalSec = Math.ceil(remain / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    label.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-  }
-  tick();
-  globalCountdownTimer = setInterval(tick, 1000);
+  setReadonlyCodeDisplay("globalActiveCodeDisplay", code);
 }
 async function resumeGlobalCountdownIfActive(){
   try{
     const snap = await db.collection("teams").doc(TEAMS[0].id).get();
     const data = snap.exists ? snap.data() : {};
     if(isSessionCodeActive(data)){
-      startGlobalCountdown(data.sessionExpiresAt, data.sessionCode);
+      showGlobalActivePanel(data.sessionCode);
     } else {
-      stopGlobalCountdown();
+      hideGlobalActivePanel();
     }
   }catch(e){
     console.error(e);
