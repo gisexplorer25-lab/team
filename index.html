@@ -1511,7 +1511,14 @@ async function adminFetchAttendanceRows(dateFilter){
     const a = d.data();
     return { date: a.date, name: a.memberName };
   });
-  if(dateFilter) rows.sort((a,b)=> (a.name||"").localeCompare(b.name||"", "ar"));
+  if(dateFilter){
+    rows.sort((a,b)=> (a.name||"").localeCompare(b.name||"", "ar"));
+  }else{
+    rows.sort((a,b)=>{
+      if(a.date === b.date) return (a.name||"").localeCompare(b.name||"", "ar");
+      return a.date < b.date ? 1 : -1; // من الأحدث للأقدم
+    });
+  }
   return rows;
 }
 
