@@ -78,6 +78,11 @@
   }
   .team-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);border-color:var(--amber);}
   .team-card .idx{font-size:10.5px;color:var(--ink-soft);font-family:'Cairo';font-weight:700;}
+  .badge-missing{
+    position:absolute;top:8px;left:8px;background:var(--red);color:#fff;
+    font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;font-family:'Cairo';
+    display:none;
+  }
   .team-card .name{font-family:'Cairo';font-weight:800;font-size:15px;margin:4px 0 1px;}
   .team-card .sub{font-size:11px;color:var(--ink-soft);}
 
@@ -723,6 +728,7 @@ function goHome(){
   stopGlobalCountdown();
   showView("view-home");
   location.hash = "";
+  refreshHomeBadges();
 }
 
 function renderHome(){
@@ -732,11 +738,28 @@ function renderHome(){
     const el = document.createElement("div");
     el.className = "team-card";
     el.onclick = () => openTeam(t.id);
-    el.innerHTML = `<div class="idx">فريق ${String(i+1).padStart(2,"0")}</div>
+    el.innerHTML = `<div class="badge-missing" id="badge-${t.id}">لسه محضرش النهاردة</div>
+                     <div class="idx">فريق ${String(i+1).padStart(2,"0")}</div>
                      <div class="name">${t.name}</div>
                      <div class="sub">تسجيل حضور وترتيب الأكثر حضورًا</div>`;
     grid.appendChild(el);
   });
+  refreshHomeBadges();
+}
+
+async function refreshHomeBadges(){
+  const date = todayStr();
+  await Promise.all(TEAMS.map(async t => {
+    const badge = document.getElementById(`badge-${t.id}`);
+    if(!badge) return;
+    try{
+      const snap = await db.collection("teams").doc(t.id).collection("attendance")
+        .where("date","==",date).limit(1).get();
+      badge.style.display = snap.empty ? "block" : "none";
+    }catch(e){
+      console.error(e);
+    }
+  }));
 }
 
 async function openTeam(teamId){
