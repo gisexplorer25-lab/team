@@ -235,16 +235,16 @@
     <div style="font-size:13px;color:#6b7a71;margin-top:4px;" id="pdfReportDate"></div>
   </div>
   <canvas id="pdfReportChart" width="720" height="320" style="display:block;margin:0 auto 22px;"></canvas>
-  <div style="display:flex;gap:14px;margin-bottom:22px;">
-    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;">
-      <div style="font-size:12px;color:#6b7a71;">الأكثر حضورًا</div>
+  <div style="display:flex;gap:14px;margin-bottom:22px;" id="pdfReportStatsRow">
+    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;" id="pdfReportTopCard">
+      <div style="font-size:12px;color:#6b7a71;" id="pdfReportTopLabel">الأكثر حضورًا</div>
       <div style="font-size:15px;font-weight:800;margin-top:6px;font-family:'Cairo',sans-serif;color:#bd6a34;" id="pdfReportTop"></div>
     </div>
-    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;">
+    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;" id="pdfReportBottomCard">
       <div style="font-size:12px;color:#6b7a71;">الأقل حضورًا</div>
       <div style="font-size:15px;font-weight:800;margin-top:6px;font-family:'Cairo',sans-serif;color:#a4402f;" id="pdfReportBottom"></div>
     </div>
-    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;">
+    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;" id="pdfReportAvgCard">
       <div style="font-size:12px;color:#6b7a71;">متوسط الحضور للعضو</div>
       <div style="font-size:15px;font-weight:800;margin-top:6px;font-family:'Cairo',sans-serif;color:#24463b;" id="pdfReportAvg"></div>
     </div>
@@ -335,23 +335,25 @@
 
     <div class="panel" id="panel-board">
       <div class="card">
-        <div class="card-header-row">
-          <h3 style="margin:0;">الأكثر حضورًا — كل الأعضاء</h3>
-          <button class="ghost" style="flex:0 0 auto;" onclick="toggleDayLookup()">📅 حضور يوم معيّن</button>
-        </div>
+        <h3>الأكثر حضورًا — كل الأعضاء</h3>
         <table>
           <thead><tr><th class="rank">#</th><th>الاسم</th><th class="count">مرات الحضور</th></tr></thead>
           <tbody id="boardBody"></tbody>
         </table>
         <div class="empty" id="boardEmpty" style="display:none;">لسه مفيش أعضاء مسجّلين في التيم ده</div>
+      </div>
 
-        <div id="dayLookupWrap" style="display:none;margin-top:18px;padding-top:16px;border-top:1.5px dashed var(--line);">
-          <div class="hint" style="margin:0 0 10px;">اختار أي يوم فات وشوف مين حضر التيم فيه بالظبط.</div>
-          <div class="row">
-            <input type="date" id="dayLookupDate">
-            <button class="primary" style="flex:0 0 auto;" onclick="runDayLookup()">عرض الحضور</button>
-          </div>
-          <div id="dayLookupResult" style="margin-top:12px;"></div>
+      <div class="card">
+        <h3>حضور يوم معين</h3>
+        <div class="hint" style="margin:0 0 10px;">اختار يوم من التقويم عشان تشوف مين حضر بالظبط في اليوم ده.</div>
+        <div class="row">
+          <input type="date" id="boardDayInput">
+          <button class="primary" style="flex:0 0 auto;" onclick="loadBoardDay()">عرض حضور اليوم ده</button>
+        </div>
+        <div class="msg" id="boardDayMsg"></div>
+        <div id="boardDayResultWrap" style="display:none;margin-top:16px;">
+          <h3 style="margin:0 0 10px;">الحاضرون يوم <span id="boardDayResultLabel"></span> (<span id="boardDayResultCount">0</span>)</h3>
+          <div class="today-list" id="boardDayResultList"></div>
         </div>
       </div>
     </div>
@@ -412,21 +414,26 @@
       </div>
 
       <div class="card">
-        <h3>تصدير بيانات الحضور</h3>
-        <div class="hint" style="margin:0 0 10px;">حمّل ملف إكسيل فيه ملخص حضور كل عضو وسجل تفصيلي بكل يوم، أو تقرير PDF فيه رسم بياني يوضح الأكثر والأقل حضورًا.</div>
+        <h3>بيانات الحضور — عرض وتصدير</h3>
+        <div class="hint" style="margin:0 0 10px;">سيب حقل اليوم فاضي عشان تشوف/تصدّر كل سجل الحضور، أو اختار يوم معين عشان تقتصر البيانات عليه بس. تقدر تعرض الجدول هنا في الصفحة، أو تحمّله إكسيل، أو تقرير PDF.</div>
+        <label>يوم معين (اختياري)</label>
         <div class="row">
+          <input type="date" id="adminExportDateFilter">
+          <button class="ghost" style="flex:0 0 auto;" onclick="clearAdminExportDateFilter()">إلغاء الفلتر — كل الأيام</button>
+        </div>
+        <div class="row" style="margin-top:12px;">
+          <button class="primary" style="flex:0 0 auto;" onclick="adminShowAttendanceTable()">👁️ عرض الجدول هنا</button>
           <button class="primary" style="flex:0 0 auto;" onclick="adminExportExcel()">📊 تحميل Excel</button>
           <button class="ghost" style="flex:0 0 auto;margin-top:16px;" onclick="adminExportPDF()">📄 تحميل تقرير PDF</button>
         </div>
         <div class="msg" id="adminExportMsg"></div>
-
-        <div style="margin-top:18px;padding-top:16px;border-top:1.5px dashed var(--line);">
-          <div class="hint" style="margin:0 0 10px;">أو حمّل حضور يوم معيّن بس (لو عايز ترجع ليوم قديم).</div>
-          <div class="row">
-            <input type="date" id="adminExportDayDate">
-            <button class="primary" style="flex:0 0 auto;" onclick="adminExportDayExcel()">📊 تحميل حضور اليوم ده</button>
-          </div>
-          <div class="msg" id="adminExportDayMsg"></div>
+        <div id="adminAttendanceTableWrap" style="display:none;margin-top:18px;">
+          <h3 id="adminAttendanceTableTitle" style="margin:0 0 10px;"></h3>
+          <table>
+            <thead><tr><th>التاريخ</th><th>الاسم</th></tr></thead>
+            <tbody id="adminAttendanceTableBody"></tbody>
+          </table>
+          <div class="empty" id="adminAttendanceTableEmpty" style="display:none;">مفيش بيانات حضور في الفترة دي</div>
         </div>
       </div>
     </div>
@@ -439,7 +446,7 @@
 
       <div class="card">
         <h3>تفعيل كود جلسة موحّد لكل التيمات</h3>
-        <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة. الكود مش مرتبط بأي وقت، وهيفضل شغال لحد ما تلغيه بنفسك من زرار "إلغاء الكود".</div>
+        <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة. الكود بيفضل شغال 10 دقايق بس من وقت التفعيل وبعدها بيبقى مش صالح.</div>
         <label>كود الجلسة</label>
         <div class="code-boxes" data-code-boxes-for="globalSessionCodeInput">
           <input type="text" inputmode="numeric" maxlength="1" class="code-box">
@@ -454,14 +461,13 @@
         </div>
         <div class="msg" id="globalSessionMsg"></div>
         <div id="globalCountdownWrap" style="display:none;margin-top:14px;">
-          <div class="hint" style="margin:0 0 8px;">الكود النشط دلوقتي — هيفضل شغال لحد ما تلغيه:</div>
+          <div class="hint" style="margin:0 0 8px;">الكود النشط دلوقتي — الوقت المتبقي: <strong id="globalCountdownLabel">10:00</strong></div>
           <div class="code-boxes readonly" id="globalActiveCodeDisplay">
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
           </div>
-          <button class="danger" style="margin-top:12px;" onclick="cancelGlobalSessionCode()">إلغاء الكود دلوقتي</button>
         </div>
       </div>
 
@@ -589,6 +595,12 @@ function todayStr(){
 function todayDisplay(){
   return new Date().toLocaleDateString("ar-EG", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
 }
+function formatDateDisplay(dateStr){
+  if(!dateStr) return "";
+  const [y,m,d] = dateStr.split("-").map(Number);
+  if(!y||!m||!d) return dateStr;
+  return new Date(y, m-1, d).toLocaleDateString("ar-EG", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
+}
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
@@ -659,9 +671,12 @@ function initCodeBoxes(){
   });
 }
 
+const SESSION_CODE_TTL_MS = 10 * 60 * 1000; // كود الجلسة بيفضل شغال 10 دقايق بس من وقت التفعيل
 function isSessionCodeActive(teamData){
   if(!teamData) return false;
-  return !!teamData.sessionCode; // الكود بيفضل نشط لحد ما المسؤول يلغيه بنفسه، مش مرتبط بوقت
+  if(!teamData.sessionCode || teamData.sessionDate !== todayStr()) return false;
+  if(!teamData.sessionExpiresAt || Date.now() > teamData.sessionExpiresAt) return false;
+  return true;
 }
 
 
@@ -738,6 +753,9 @@ async function openTeam(teamId){
   setCodeBoxesValue("leaderCodeInput", "");
   document.getElementById("leaderMsg").className = "msg";
   document.getElementById("leaderFormWrap").style.display = "none";
+  document.getElementById("boardDayInput").value = "";
+  document.getElementById("boardDayMsg").className = "msg";
+  document.getElementById("boardDayResultWrap").style.display = "none";
 
   try{
     showLoading();
@@ -991,34 +1009,27 @@ function renderLeaderboard(){
   `).join("");
 }
 
-function toggleDayLookup(){
-  const wrap = document.getElementById("dayLookupWrap");
-  const opening = wrap.style.display === "none";
-  wrap.style.display = opening ? "block" : "none";
-  if(opening){
-    document.getElementById("dayLookupDate").value = todayStr();
-    document.getElementById("dayLookupResult").innerHTML = "";
-  }
-}
-
-async function runDayLookup(){
-  const date = document.getElementById("dayLookupDate").value;
-  const resultBox = document.getElementById("dayLookupResult");
-  if(!date){ resultBox.innerHTML = `<div class="msg err">اختار تاريخ الأول.</div>`; return; }
+async function loadBoardDay(){
+  const msg = document.getElementById("boardDayMsg");
+  msg.className = "msg";
+  const date = document.getElementById("boardDayInput").value;
+  if(!date){ showMsg(msg, "err", "اختار يوم الأول."); return; }
+  const wrap = document.getElementById("boardDayResultWrap");
   try{
     showLoading();
     const snap = await db.collection("teams").doc(currentTeamId).collection("attendance")
       .where("date","==",date).get();
-    const names = snap.docs.map(d=>d.data().memberName);
-    resultBox.innerHTML = `
-      <div class="hint" style="margin:0 0 8px;">عدد الحاضرين في ${date}: <strong>${names.length}</strong></div>
-      ${names.length
-        ? `<div class="today-list">${names.map(n=>`<span class="chip">${escapeHtml(n)}</span>`).join("")}</div>`
-        : `<div class="empty">محدش سجّل حضوره في اليوم ده</div>`}
-    `;
+    const names = snap.docs.map(d=>d.data().memberName).sort((a,b)=>a.localeCompare(b,"ar"));
+    document.getElementById("boardDayResultLabel").textContent = formatDateDisplay(date);
+    document.getElementById("boardDayResultCount").textContent = names.length;
+    const list = document.getElementById("boardDayResultList");
+    list.innerHTML = names.length
+      ? names.map(n=>`<span class="chip">${escapeHtml(n)}</span>`).join("")
+      : `<span class="empty">محدش سجّل حضوره في اليوم ده</span>`;
+    wrap.style.display = "block";
   }catch(e){
     console.error(e);
-    resultBox.innerHTML = `<div class="msg err">حصل خطأ أثناء التحميل، حاول تاني.</div>`;
+    showMsg(msg, "err", "حصل خطأ أثناء تحميل بيانات اليوم ده، حاول تاني.");
   }finally{
     hideLoading();
   }
@@ -1118,8 +1129,9 @@ async function enterAdminPanel(teamId){
   document.getElementById("adminNewMemberInput").value = "";
   document.getElementById("adminAddMemberMsg").className = "msg";
   document.getElementById("adminEditMemberMsg").className = "msg";
-  document.getElementById("adminExportDayDate").value = todayStr();
-  document.getElementById("adminExportDayMsg").className = "msg";
+  document.getElementById("adminExportDateFilter").value = "";
+  document.getElementById("adminExportMsg").className = "msg";
+  document.getElementById("adminAttendanceTableWrap").style.display = "none";
   await ensureTeamDoc(teamId);
   await loadMembers(teamId);
   renderAdminEditMembersList();
@@ -1262,39 +1274,18 @@ async function applyGlobalSessionCode(code){
     showLoading();
     await Promise.all(TEAMS.map(t => ensureSingleTeamDoc(t.id)));
     const date = todayStr();
+    const expiresAt = Date.now() + SESSION_CODE_TTL_MS;
     const batch = db.batch();
     TEAMS.forEach(t => {
-      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date, sessionExpiresAt: 0 });
+      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date, sessionExpiresAt: expiresAt });
     });
     await batch.commit();
-    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) ✓ وهيفضل شغال لحد ما تلغيه بنفسك.`);
-    startGlobalCountdown(code);
+    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) لمدة 10 دقايق ✓`);
+    startGlobalCountdown(expiresAt, code);
     await renderGlobalTeamsStatus();
   }catch(e){
     console.error(e);
     showMsg(msg, "err", "حصل خطأ أثناء التفعيل، حاول تاني.");
-  }finally{
-    hideLoading();
-  }
-}
-
-async function cancelGlobalSessionCode(){
-  const msg = document.getElementById("globalSessionMsg");
-  msg.className = "msg";
-  if(!confirm("متأكد إنك عايز تلغي كود الجلسة الحالي؟ محدش هيقدر يسجل حضوره بعد الإلغاء لحد ما تفعّل كود جديد.")) return;
-  try{
-    showLoading();
-    const batch = db.batch();
-    TEAMS.forEach(t => {
-      batch.update(db.collection("teams").doc(t.id), { sessionCode: "", sessionDate: "", sessionExpiresAt: 0 });
-    });
-    await batch.commit();
-    showMsg(msg, "ok", "تم إلغاء الكود، مبقاش صالح لتسجيل الحضور دلوقتي.");
-    stopGlobalCountdown();
-    await renderGlobalTeamsStatus();
-  }catch(e){
-    console.error(e);
-    showMsg(msg, "err", "حصل خطأ أثناء الإلغاء، حاول تاني.");
   }finally{
     hideLoading();
   }
@@ -1309,22 +1300,43 @@ function setReadonlyCodeDisplay(wrapId, code){
   wrap.classList.toggle("expired", !code);
 }
 
+let globalCountdownTimer = null;
 function stopGlobalCountdown(){
+  if(globalCountdownTimer){ clearInterval(globalCountdownTimer); globalCountdownTimer = null; }
   const wrap = document.getElementById("globalCountdownWrap");
   if(wrap) wrap.style.display = "none";
   setReadonlyCodeDisplay("globalActiveCodeDisplay", "");
 }
-function startGlobalCountdown(code){
+function startGlobalCountdown(expiresAt, code){
+  stopGlobalCountdown();
   const wrap = document.getElementById("globalCountdownWrap");
+  const label = document.getElementById("globalCountdownLabel");
   wrap.style.display = "block";
   if(code) setReadonlyCodeDisplay("globalActiveCodeDisplay", code);
+  function tick(){
+    const remain = expiresAt - Date.now();
+    if(remain <= 0){
+      label.textContent = "00:00";
+      stopGlobalCountdown();
+      const msg = document.getElementById("globalSessionMsg");
+      if(msg) showMsg(msg, "err", "انتهت صلاحية الكود، فعّل كود جديد لو محتاج.");
+      renderGlobalTeamsStatus();
+      return;
+    }
+    const totalSec = Math.ceil(remain / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    label.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  }
+  tick();
+  globalCountdownTimer = setInterval(tick, 1000);
 }
 async function resumeGlobalCountdownIfActive(){
   try{
     const snap = await db.collection("teams").doc(TEAMS[0].id).get();
     const data = snap.exists ? snap.data() : {};
     if(isSessionCodeActive(data)){
-      startGlobalCountdown(data.sessionCode);
+      startGlobalCountdown(data.sessionExpiresAt, data.sessionCode);
     } else {
       stopGlobalCountdown();
     }
@@ -1459,59 +1471,86 @@ function drawAttendanceChart(canvas, members){
   });
 }
 
-async function adminExportExcel(){
+function getAdminExportDateFilter(){
+  return document.getElementById("adminExportDateFilter").value || null;
+}
+
+function clearAdminExportDateFilter(){
+  document.getElementById("adminExportDateFilter").value = "";
+  document.getElementById("adminExportMsg").className = "msg";
+}
+
+async function adminFetchAttendanceRows(dateFilter){
+  let q = db.collection("teams").doc(currentTeamId).collection("attendance");
+  q = dateFilter ? q.where("date","==",dateFilter) : q.orderBy("date","desc");
+  const snap = await q.get();
+  const rows = snap.docs.map(d=>{
+    const a = d.data();
+    return { date: a.date, name: a.memberName };
+  });
+  if(dateFilter) rows.sort((a,b)=> (a.name||"").localeCompare(b.name||"", "ar"));
+  return rows;
+}
+
+async function adminShowAttendanceTable(){
   const msg = document.getElementById("adminExportMsg");
   msg.className = "msg";
-  if(!currentMembers.length){ showMsg(msg,"err","التيم لسه مفيش فيه أعضاء."); return; }
-  const team = TEAMS.find(t=>t.id===currentTeamId);
+  const dateFilter = getAdminExportDateFilter();
+  const wrap = document.getElementById("adminAttendanceTableWrap");
+  const body = document.getElementById("adminAttendanceTableBody");
+  const empty = document.getElementById("adminAttendanceTableEmpty");
+  const title = document.getElementById("adminAttendanceTableTitle");
   try{
     showLoading();
-    const attSnap = await db.collection("teams").doc(currentTeamId).collection("attendance")
-      .orderBy("date","desc").get();
-    const attendanceRows = attSnap.docs.map(d=>{
-      const a = d.data();
-      return { "التاريخ": a.date, "الاسم": a.memberName };
-    });
-    const summaryRows = [...currentMembers]
-      .sort((a,b)=>(b.attendanceCount||0)-(a.attendanceCount||0))
-      .map((m,i)=>({ "الترتيب": i+1, "الاسم": m.name, "عدد مرات الحضور": m.attendanceCount||0 }));
-
-    const wb = XLSX.utils.book_new();
-    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-    const wsLog = XLSX.utils.json_to_sheet(attendanceRows.length ? attendanceRows : [{ "التاريخ":"", "الاسم":"" }]);
-    XLSX.utils.book_append_sheet(wb, wsSummary, "ملخص الحضور");
-    XLSX.utils.book_append_sheet(wb, wsLog, "سجل الحضور بالتفصيل");
-    XLSX.writeFile(wb, `حضور-${team.name}-${todayStr()}.xlsx`);
-    showMsg(msg, "ok", "تم تحميل ملف الإكسيل ✓");
+    const rows = await adminFetchAttendanceRows(dateFilter);
+    title.textContent = dateFilter
+      ? `حضور يوم ${formatDateDisplay(dateFilter)} (${rows.length})`
+      : `كل سجل الحضور (${rows.length} سجل)`;
+    if(rows.length === 0){
+      body.innerHTML = "";
+      empty.style.display = "block";
+    }else{
+      empty.style.display = "none";
+      body.innerHTML = rows.map(r=>`<tr><td>${escapeHtml(formatDateDisplay(r.date))}</td><td>${escapeHtml(r.name)}</td></tr>`).join("");
+    }
+    wrap.style.display = "block";
   }catch(e){
     console.error(e);
-    showMsg(msg, "err", "حصل خطأ أثناء تجهيز الملف، حاول تاني.");
+    showMsg(msg, "err", "حصل خطأ أثناء تحميل الجدول، حاول تاني.");
   }finally{
     hideLoading();
   }
 }
 
-async function adminExportDayExcel(){
-  const msg = document.getElementById("adminExportDayMsg");
+async function adminExportExcel(){
+  const msg = document.getElementById("adminExportMsg");
   msg.className = "msg";
-  const date = document.getElementById("adminExportDayDate").value;
-  if(!date){ showMsg(msg,"err","اختار التاريخ الأول."); return; }
+  if(!currentMembers.length){ showMsg(msg,"err","التيم لسه مفيش فيه أعضاء."); return; }
   const team = TEAMS.find(t=>t.id===currentTeamId);
+  const dateFilter = getAdminExportDateFilter();
   try{
     showLoading();
-    const attSnap = await db.collection("teams").doc(currentTeamId).collection("attendance")
-      .where("date","==",date).get();
-    const rows = attSnap.docs.map(d=>{
-      const a = d.data();
-      return { "التاريخ": a.date, "الاسم": a.memberName };
-    });
-    if(!rows.length){
-      showMsg(msg, "err", `محدش سجّل حضوره في ${date}.`); return;
-    }
+    const rows = await adminFetchAttendanceRows(dateFilter);
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, "الحضور");
-    XLSX.writeFile(wb, `حضور-${team.name}-${date}.xlsx`);
+
+    if(dateFilter){
+      const dayRows = rows.length
+        ? rows.map(r=>({ "التاريخ": r.date, "الاسم": r.name }))
+        : [{ "التاريخ": dateFilter, "الاسم": "" }];
+      const wsDay = XLSX.utils.json_to_sheet(dayRows);
+      XLSX.utils.book_append_sheet(wb, wsDay, "حضور اليوم");
+      XLSX.writeFile(wb, `حضور-${team.name}-${dateFilter}.xlsx`);
+    }else{
+      const attendanceRows = rows.map(r=>({ "التاريخ": r.date, "الاسم": r.name }));
+      const summaryRows = [...currentMembers]
+        .sort((a,b)=>(b.attendanceCount||0)-(a.attendanceCount||0))
+        .map((m,i)=>({ "الترتيب": i+1, "الاسم": m.name, "عدد مرات الحضور": m.attendanceCount||0 }));
+      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+      const wsLog = XLSX.utils.json_to_sheet(attendanceRows.length ? attendanceRows : [{ "التاريخ":"", "الاسم":"" }]);
+      XLSX.utils.book_append_sheet(wb, wsSummary, "ملخص الحضور");
+      XLSX.utils.book_append_sheet(wb, wsLog, "سجل الحضور بالتفصيل");
+      XLSX.writeFile(wb, `حضور-${team.name}-${todayStr()}.xlsx`);
+    }
     showMsg(msg, "ok", "تم تحميل ملف الإكسيل ✓");
   }catch(e){
     console.error(e);
@@ -1526,43 +1565,84 @@ async function adminExportPDF(){
   msg.className = "msg";
   if(!currentMembers.length){ showMsg(msg,"err","التيم لسه مفيش فيه أعضاء."); return; }
   const team = TEAMS.find(t=>t.id===currentTeamId);
+  const dateFilter = getAdminExportDateFilter();
+
+  const canvas = document.getElementById("pdfReportChart");
+  const bottomCard = document.getElementById("pdfReportBottomCard");
+  const avgCard = document.getElementById("pdfReportAvgCard");
+  const topLabel = document.getElementById("pdfReportTopLabel");
+
   try{
     showLoading();
-    const members = [...currentMembers].sort((a,b)=>(b.attendanceCount||0)-(a.attendanceCount||0));
-    const counts = members.map(m=>m.attendanceCount||0);
-    const maxVal = Math.max(...counts);
-    const minVal = Math.min(...counts);
-    const total = counts.reduce((s,c)=>s+c,0);
-    const avg = (total / members.length).toFixed(1);
-    const topNames = members.filter(m=>(m.attendanceCount||0)===maxVal).map(m=>m.name).join("، ");
-    const bottomNames = members.filter(m=>(m.attendanceCount||0)===minVal).map(m=>m.name).join("، ");
 
-    document.getElementById("pdfReportTeamName").textContent = "تقرير حضور — " + team.name;
-    document.getElementById("pdfReportDate").textContent = todayDisplay();
-    document.getElementById("pdfReportTop").textContent = `${topNames} (${maxVal})`;
-    document.getElementById("pdfReportBottom").textContent = `${bottomNames} (${minVal})`;
-    document.getElementById("pdfReportAvg").textContent = avg;
+    if(dateFilter){
+      const rows = await adminFetchAttendanceRows(dateFilter);
 
-    const tableEl = document.getElementById("pdfReportTable");
-    tableEl.innerHTML = `
-      <thead><tr>
-        <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">#</th>
-        <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">الاسم</th>
-        <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">عدد مرات الحضور</th>
-      </tr></thead>
-      <tbody>
-        ${members.map((m,i)=>`
-          <tr>
-            <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${i+1}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${escapeHtml(m.name)}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${m.attendanceCount||0}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    `;
+      canvas.style.display = "none";
+      bottomCard.style.display = "none";
+      avgCard.style.display = "none";
+      topLabel.textContent = "عدد الحاضرين";
 
-    const canvas = document.getElementById("pdfReportChart");
-    drawAttendanceChart(canvas, members);
+      document.getElementById("pdfReportTeamName").textContent = "تقرير حضور — " + team.name;
+      document.getElementById("pdfReportDate").textContent = "يوم " + formatDateDisplay(dateFilter);
+      document.getElementById("pdfReportTop").textContent = String(rows.length);
+
+      const tableEl = document.getElementById("pdfReportTable");
+      tableEl.innerHTML = `
+        <thead><tr>
+          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">#</th>
+          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">الاسم</th>
+        </tr></thead>
+        <tbody>
+          ${rows.length ? rows.map((r,i)=>`
+            <tr>
+              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${i+1}</td>
+              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${escapeHtml(r.name)}</td>
+            </tr>
+          `).join("") : `<tr><td colspan="2" style="padding:6px 8px;border-bottom:1px solid #dde2da;">محدش سجّل حضوره في اليوم ده</td></tr>`}
+        </tbody>
+      `;
+    }else{
+      canvas.style.display = "block";
+      bottomCard.style.display = "block";
+      avgCard.style.display = "block";
+      topLabel.textContent = "الأكثر حضورًا";
+
+      const members = [...currentMembers].sort((a,b)=>(b.attendanceCount||0)-(a.attendanceCount||0));
+      const counts = members.map(m=>m.attendanceCount||0);
+      const maxVal = Math.max(...counts);
+      const minVal = Math.min(...counts);
+      const total = counts.reduce((s,c)=>s+c,0);
+      const avg = (total / members.length).toFixed(1);
+      const topNames = members.filter(m=>(m.attendanceCount||0)===maxVal).map(m=>m.name).join("، ");
+      const bottomNames = members.filter(m=>(m.attendanceCount||0)===minVal).map(m=>m.name).join("، ");
+
+      document.getElementById("pdfReportTeamName").textContent = "تقرير حضور — " + team.name;
+      document.getElementById("pdfReportDate").textContent = todayDisplay();
+      document.getElementById("pdfReportTop").textContent = `${topNames} (${maxVal})`;
+      document.getElementById("pdfReportBottom").textContent = `${bottomNames} (${minVal})`;
+      document.getElementById("pdfReportAvg").textContent = avg;
+
+      const tableEl = document.getElementById("pdfReportTable");
+      tableEl.innerHTML = `
+        <thead><tr>
+          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">#</th>
+          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">الاسم</th>
+          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">عدد مرات الحضور</th>
+        </tr></thead>
+        <tbody>
+          ${members.map((m,i)=>`
+            <tr>
+              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${i+1}</td>
+              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${escapeHtml(m.name)}</td>
+              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${m.attendanceCount||0}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      `;
+
+      drawAttendanceChart(canvas, members);
+    }
 
     if(document.fonts && document.fonts.ready) await document.fonts.ready;
 
@@ -1588,7 +1668,8 @@ async function adminExportPDF(){
       heightLeft -= pageH;
     }
 
-    pdf.save(`تقرير-حضور-${team.name}-${todayStr()}.pdf`);
+    const fileSuffix = dateFilter || todayStr();
+    pdf.save(`تقرير-حضور-${team.name}-${fileSuffix}.pdf`);
     showMsg(msg, "ok", "تم تحميل تقرير الـ PDF ✓");
   }catch(e){
     console.error(e);
