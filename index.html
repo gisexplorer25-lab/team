@@ -335,12 +335,24 @@
 
     <div class="panel" id="panel-board">
       <div class="card">
-        <h3>الأكثر حضورًا — كل الأعضاء</h3>
+        <div class="card-header-row">
+          <h3 style="margin:0;">الأكثر حضورًا — كل الأعضاء</h3>
+          <button class="ghost" style="flex:0 0 auto;" onclick="toggleDayLookup()">📅 حضور يوم معيّن</button>
+        </div>
         <table>
           <thead><tr><th class="rank">#</th><th>الاسم</th><th class="count">مرات الحضور</th></tr></thead>
           <tbody id="boardBody"></tbody>
         </table>
         <div class="empty" id="boardEmpty" style="display:none;">لسه مفيش أعضاء مسجّلين في التيم ده</div>
+
+        <div id="dayLookupWrap" style="display:none;margin-top:18px;padding-top:16px;border-top:1.5px dashed var(--line);">
+          <div class="hint" style="margin:0 0 10px;">اختار أي يوم فات وشوف مين حضر التيم فيه بالظبط.</div>
+          <div class="row">
+            <input type="date" id="dayLookupDate">
+            <button class="primary" style="flex:0 0 auto;" onclick="runDayLookup()">عرض الحضور</button>
+          </div>
+          <div id="dayLookupResult" style="margin-top:12px;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -407,6 +419,15 @@
           <button class="ghost" style="flex:0 0 auto;margin-top:16px;" onclick="adminExportPDF()">📄 تحميل تقرير PDF</button>
         </div>
         <div class="msg" id="adminExportMsg"></div>
+
+        <div style="margin-top:18px;padding-top:16px;border-top:1.5px dashed var(--line);">
+          <div class="hint" style="margin:0 0 10px;">أو حمّل حضور يوم معيّن بس (لو عايز ترجع ليوم قديم).</div>
+          <div class="row">
+            <input type="date" id="adminExportDayDate">
+            <button class="primary" style="flex:0 0 auto;" onclick="adminExportDayExcel()">📊 تحميل حضور اليوم ده</button>
+          </div>
+          <div class="msg" id="adminExportDayMsg"></div>
+        </div>
       </div>
     </div>
 
@@ -418,7 +439,7 @@
 
       <div class="card">
         <h3>تفعيل كود جلسة موحّد لكل التيمات</h3>
-        <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة. الكود بيفضل شغال 10 دقايق بس من وقت التفعيل وبعدها بيبقى مش صالح.</div>
+        <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة. الكود مش مرتبط بأي وقت، وهيفضل شغال لحد ما تلغيه بنفسك من زرار "إلغاء الكود".</div>
         <label>كود الجلسة</label>
         <div class="code-boxes" data-code-boxes-for="globalSessionCodeInput">
           <input type="text" inputmode="numeric" maxlength="1" class="code-box">
@@ -433,13 +454,14 @@
         </div>
         <div class="msg" id="globalSessionMsg"></div>
         <div id="globalCountdownWrap" style="display:none;margin-top:14px;">
-          <div class="hint" style="margin:0 0 8px;">الكود النشط دلوقتي — الوقت المتبقي: <strong id="globalCountdownLabel">10:00</strong></div>
+          <div class="hint" style="margin:0 0 8px;">الكود النشط دلوقتي — هيفضل شغال لحد ما تلغيه:</div>
           <div class="code-boxes readonly" id="globalActiveCodeDisplay">
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
           </div>
+          <button class="danger" style="margin-top:12px;" onclick="cancelGlobalSessionCode()">إلغاء الكود دلوقتي</button>
         </div>
       </div>
 
@@ -637,12 +659,9 @@ function initCodeBoxes(){
   });
 }
 
-const SESSION_CODE_TTL_MS = 10 * 60 * 1000; // كود الجلسة بيفضل شغال 10 دقايق بس من وقت التفعيل
 function isSessionCodeActive(teamData){
   if(!teamData) return false;
-  if(!teamData.sessionCode || teamData.sessionDate !== todayStr()) return false;
-  if(!teamData.sessionExpiresAt || Date.now() > teamData.sessionExpiresAt) return false;
-  return true;
+  return !!teamData.sessionCode; // الكود بيفضل نشط لحد ما المسؤول يلغيه بنفسه، مش مرتبط بوقت
 }
 
 
@@ -972,6 +991,39 @@ function renderLeaderboard(){
   `).join("");
 }
 
+function toggleDayLookup(){
+  const wrap = document.getElementById("dayLookupWrap");
+  const opening = wrap.style.display === "none";
+  wrap.style.display = opening ? "block" : "none";
+  if(opening){
+    document.getElementById("dayLookupDate").value = todayStr();
+    document.getElementById("dayLookupResult").innerHTML = "";
+  }
+}
+
+async function runDayLookup(){
+  const date = document.getElementById("dayLookupDate").value;
+  const resultBox = document.getElementById("dayLookupResult");
+  if(!date){ resultBox.innerHTML = `<div class="msg err">اختار تاريخ الأول.</div>`; return; }
+  try{
+    showLoading();
+    const snap = await db.collection("teams").doc(currentTeamId).collection("attendance")
+      .where("date","==",date).get();
+    const names = snap.docs.map(d=>d.data().memberName);
+    resultBox.innerHTML = `
+      <div class="hint" style="margin:0 0 8px;">عدد الحاضرين في ${date}: <strong>${names.length}</strong></div>
+      ${names.length
+        ? `<div class="today-list">${names.map(n=>`<span class="chip">${escapeHtml(n)}</span>`).join("")}</div>`
+        : `<div class="empty">محدش سجّل حضوره في اليوم ده</div>`}
+    `;
+  }catch(e){
+    console.error(e);
+    resultBox.innerHTML = `<div class="msg err">حصل خطأ أثناء التحميل، حاول تاني.</div>`;
+  }finally{
+    hideLoading();
+  }
+}
+
 async function openAdminGate(){
   showView("view-admin-gate");
   location.hash = "admin";
@@ -1066,6 +1118,8 @@ async function enterAdminPanel(teamId){
   document.getElementById("adminNewMemberInput").value = "";
   document.getElementById("adminAddMemberMsg").className = "msg";
   document.getElementById("adminEditMemberMsg").className = "msg";
+  document.getElementById("adminExportDayDate").value = todayStr();
+  document.getElementById("adminExportDayMsg").className = "msg";
   await ensureTeamDoc(teamId);
   await loadMembers(teamId);
   renderAdminEditMembersList();
@@ -1208,18 +1262,39 @@ async function applyGlobalSessionCode(code){
     showLoading();
     await Promise.all(TEAMS.map(t => ensureSingleTeamDoc(t.id)));
     const date = todayStr();
-    const expiresAt = Date.now() + SESSION_CODE_TTL_MS;
     const batch = db.batch();
     TEAMS.forEach(t => {
-      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date, sessionExpiresAt: expiresAt });
+      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date, sessionExpiresAt: 0 });
     });
     await batch.commit();
-    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) لمدة 10 دقايق ✓`);
-    startGlobalCountdown(expiresAt, code);
+    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) ✓ وهيفضل شغال لحد ما تلغيه بنفسك.`);
+    startGlobalCountdown(code);
     await renderGlobalTeamsStatus();
   }catch(e){
     console.error(e);
     showMsg(msg, "err", "حصل خطأ أثناء التفعيل، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
+
+async function cancelGlobalSessionCode(){
+  const msg = document.getElementById("globalSessionMsg");
+  msg.className = "msg";
+  if(!confirm("متأكد إنك عايز تلغي كود الجلسة الحالي؟ محدش هيقدر يسجل حضوره بعد الإلغاء لحد ما تفعّل كود جديد.")) return;
+  try{
+    showLoading();
+    const batch = db.batch();
+    TEAMS.forEach(t => {
+      batch.update(db.collection("teams").doc(t.id), { sessionCode: "", sessionDate: "", sessionExpiresAt: 0 });
+    });
+    await batch.commit();
+    showMsg(msg, "ok", "تم إلغاء الكود، مبقاش صالح لتسجيل الحضور دلوقتي.");
+    stopGlobalCountdown();
+    await renderGlobalTeamsStatus();
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء الإلغاء، حاول تاني.");
   }finally{
     hideLoading();
   }
@@ -1234,43 +1309,22 @@ function setReadonlyCodeDisplay(wrapId, code){
   wrap.classList.toggle("expired", !code);
 }
 
-let globalCountdownTimer = null;
 function stopGlobalCountdown(){
-  if(globalCountdownTimer){ clearInterval(globalCountdownTimer); globalCountdownTimer = null; }
   const wrap = document.getElementById("globalCountdownWrap");
   if(wrap) wrap.style.display = "none";
   setReadonlyCodeDisplay("globalActiveCodeDisplay", "");
 }
-function startGlobalCountdown(expiresAt, code){
-  stopGlobalCountdown();
+function startGlobalCountdown(code){
   const wrap = document.getElementById("globalCountdownWrap");
-  const label = document.getElementById("globalCountdownLabel");
   wrap.style.display = "block";
   if(code) setReadonlyCodeDisplay("globalActiveCodeDisplay", code);
-  function tick(){
-    const remain = expiresAt - Date.now();
-    if(remain <= 0){
-      label.textContent = "00:00";
-      stopGlobalCountdown();
-      const msg = document.getElementById("globalSessionMsg");
-      if(msg) showMsg(msg, "err", "انتهت صلاحية الكود، فعّل كود جديد لو محتاج.");
-      renderGlobalTeamsStatus();
-      return;
-    }
-    const totalSec = Math.ceil(remain / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    label.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-  }
-  tick();
-  globalCountdownTimer = setInterval(tick, 1000);
 }
 async function resumeGlobalCountdownIfActive(){
   try{
     const snap = await db.collection("teams").doc(TEAMS[0].id).get();
     const data = snap.exists ? snap.data() : {};
     if(isSessionCodeActive(data)){
-      startGlobalCountdown(data.sessionExpiresAt, data.sessionCode);
+      startGlobalCountdown(data.sessionCode);
     } else {
       stopGlobalCountdown();
     }
@@ -1428,6 +1482,36 @@ async function adminExportExcel(){
     XLSX.utils.book_append_sheet(wb, wsSummary, "ملخص الحضور");
     XLSX.utils.book_append_sheet(wb, wsLog, "سجل الحضور بالتفصيل");
     XLSX.writeFile(wb, `حضور-${team.name}-${todayStr()}.xlsx`);
+    showMsg(msg, "ok", "تم تحميل ملف الإكسيل ✓");
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء تجهيز الملف، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
+
+async function adminExportDayExcel(){
+  const msg = document.getElementById("adminExportDayMsg");
+  msg.className = "msg";
+  const date = document.getElementById("adminExportDayDate").value;
+  if(!date){ showMsg(msg,"err","اختار التاريخ الأول."); return; }
+  const team = TEAMS.find(t=>t.id===currentTeamId);
+  try{
+    showLoading();
+    const attSnap = await db.collection("teams").doc(currentTeamId).collection("attendance")
+      .where("date","==",date).get();
+    const rows = attSnap.docs.map(d=>{
+      const a = d.data();
+      return { "التاريخ": a.date, "الاسم": a.memberName };
+    });
+    if(!rows.length){
+      showMsg(msg, "err", `محدش سجّل حضوره في ${date}.`); return;
+    }
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, "الحضور");
+    XLSX.writeFile(wb, `حضور-${team.name}-${date}.xlsx`);
     showMsg(msg, "ok", "تم تحميل ملف الإكسيل ✓");
   }catch(e){
     console.error(e);
