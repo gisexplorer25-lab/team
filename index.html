@@ -403,6 +403,25 @@
       <div id="certLowAttendanceWrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1.5px dashed var(--line);">
         <button class="ghost" type="button" onclick="toggleCertAttendedDays()" id="certDaysToggleBtn">📅 اعرض الأيام اللي حضرتها</button>
         <div class="today-list" id="certDaysList" style="display:none;margin-top:10px;"></div>
+
+        <div style="margin-top:16px;padding-top:14px;border-top:1.5px dashed var(--line);">
+          <button class="ghost" type="button" onclick="toggleCertRecoverForm()" id="certRecoverToggleBtn">📝 سجّل حضور يوم فاتك بكود من المسؤول</button>
+          <div id="certRecoverFormWrap" style="display:none;margin-top:12px;">
+            <div class="hint" style="margin:0 0 10px;">اختار اليوم اللي حضرته فعلاً بس فاتك تسجّله، واكتب الكود اللي هيدّيهولك المسؤول ليوم بعينه.</div>
+            <label>التاريخ</label>
+            <input type="date" id="certRecoverDateInput">
+            <label>كود اليوم ده</label>
+            <div class="code-boxes" data-code-boxes-for="certRecoverCodeInput">
+              <input type="text" inputmode="numeric" maxlength="1" class="code-box">
+              <input type="text" inputmode="numeric" maxlength="1" class="code-box">
+              <input type="text" inputmode="numeric" maxlength="1" class="code-box">
+              <input type="text" inputmode="numeric" maxlength="1" class="code-box">
+            </div>
+            <input type="hidden" id="certRecoverCodeInput">
+            <button class="primary" onclick="submitCertRecoverAttendance()">تسجيل الحضور</button>
+            <div class="msg" id="certRecoverMsg"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -444,6 +463,35 @@
         </div>
         <button class="primary" onclick="adminMarkAttendance()">تسجيل الحضور يدويًا</button>
         <div class="msg" id="adminMarkMsg"></div>
+      </div>
+
+      <div class="card">
+        <h3>كود تسجيل حضور يوم فات</h3>
+        <div class="hint" style="margin:0 0 10px;">فعّل كود لتاريخ معيّن (النهارده أو أي يوم فات)، والطالب اللي فاته يسجّل حضوره في اليوم ده هيقدر يدخل من صفحة "عايز شهادتك"، يختار نفس اليوم، ويكتب الكود ده عشان يسجّل حضوره بنفسه. الكود بيفضل شغال 10 دقايق بس من وقت التفعيل.</div>
+        <label>التاريخ</label>
+        <input type="date" id="recoverDateInput">
+        <label>الكود</label>
+        <div class="code-boxes" data-code-boxes-for="recoverCodeInput">
+          <input type="text" inputmode="numeric" maxlength="1" class="code-box">
+          <input type="text" inputmode="numeric" maxlength="1" class="code-box">
+          <input type="text" inputmode="numeric" maxlength="1" class="code-box">
+          <input type="text" inputmode="numeric" maxlength="1" class="code-box">
+        </div>
+        <input type="hidden" id="recoverCodeInput">
+        <div class="row">
+          <button class="primary" style="flex:0 0 auto;margin-top:16px;" onclick="activateRecoverCode()">تفعيل الكود لليوم ده</button>
+          <button class="ghost" style="flex:0 0 auto;margin-top:16px;" onclick="generateRecoverCode()">توليد كود عشوائي وتفعيله</button>
+        </div>
+        <div class="msg" id="recoverMsg"></div>
+        <div id="recoverCountdownWrap" style="display:none;margin-top:14px;">
+          <div class="hint" style="margin:0 0 8px;">الكود النشط دلوقتي ليوم <strong id="recoverActiveDateLabel"></strong> — الوقت المتبقي: <strong id="recoverCountdownLabel">10:00</strong></div>
+          <div class="code-boxes readonly" id="recoverActiveCodeDisplay">
+            <input type="text" class="code-box" tabindex="-1" readonly>
+            <input type="text" class="code-box" tabindex="-1" readonly>
+            <input type="text" class="code-box" tabindex="-1" readonly>
+            <input type="text" class="code-box" tabindex="-1" readonly>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -786,6 +834,8 @@ function openCertificateView(){
   document.getElementById("certLowAttendanceWrap").style.display = "none";
   document.getElementById("certDaysList").style.display = "none";
   document.getElementById("certDaysList").innerHTML = "";
+  document.getElementById("certRecoverFormWrap").style.display = "none";
+  document.getElementById("certRecoverMsg").className = "msg";
   certCurrentMember = null;
   certCurrentTeam = null;
   certTeamMembersCache = [];
@@ -892,6 +942,90 @@ async function submitCertificateRequest(){
   }
 }
 
+function toggleCertRecoverForm(){
+  const wrap = document.getElementById("certRecoverFormWrap");
+  const opening = wrap.style.display === "none";
+  wrap.style.display = opening ? "block" : "none";
+  if(opening){
+    document.getElementById("certRecoverDateInput").value = todayStr();
+    setCodeBoxesValue("certRecoverCodeInput", "");
+    document.getElementById("certRecoverMsg").className = "msg";
+  }
+}
+
+async function submitCertRecoverAttendance(){
+  const msg = document.getElementById("certRecoverMsg");
+  msg.className = "msg";
+  if(!certCurrentMember || !certCurrentTeam){ showMsg(msg, "err", "اختار البرنامج واسمك من القائمة الأول."); return; }
+
+  const date = document.getElementById("certRecoverDateInput").value;
+  const code = document.getElementById("certRecoverCodeInput").value.trim();
+  if(!date){ showMsg(msg, "err", "اختار التاريخ."); return; }
+  if(!code){ showMsg(msg, "err", "اكتب الكود."); return; }
+
+  try{
+    showLoading();
+    const teamRef = db.collection("teams").doc(certCurrentTeam.id);
+    const teamSnap = await teamRef.get();
+    const teamData = teamSnap.exists ? teamSnap.data() : {};
+
+    if(!isRecoverCodeActive(teamData, date)){
+      showMsg(msg, "err", "مفيش كود مفعّل لليوم ده دلوقتي، أو الكود خلصت صلاحيته. اتأكد من المسؤول.");
+      return;
+    }
+    if(code !== teamData.recoverCode){
+      showMsg(msg, "err", "الكود اللي كتبته غلط، حاول تاني.");
+      return;
+    }
+
+    const dup = await teamRef.collection("attendance")
+      .where("memberId", "==", certCurrentMember.id).where("date", "==", date).limit(1).get();
+    if(!dup.empty){
+      showMsg(msg, "err", `أنت مسجّل حضورك بالفعل في يوم ${date}.`);
+      return;
+    }
+
+    await teamRef.collection("attendance").add({
+      memberId: certCurrentMember.id, memberName: certCurrentMember.name, date, timestamp: FieldValue.serverTimestamp()
+    });
+    await teamRef.collection("members").doc(certCurrentMember.id).update({
+      attendanceCount: FieldValue.increment(1)
+    });
+
+    const memberSnap = await teamRef.collection("members").doc(certCurrentMember.id).get();
+    certCurrentMember = { id: certCurrentMember.id, ...memberSnap.data() };
+    const count = certCurrentMember.attendanceCount || 0;
+    const eligible = count >= CERT_REQUIRED_ATTENDANCE;
+
+    // حدّث طلب الشهادة المحفوظ لو الطالب كان عمل طلب قبل كده
+    const reqSnap = await db.collection("certificateRequests")
+      .where("memberId", "==", certCurrentMember.id).where("teamId", "==", certCurrentTeam.id).limit(1).get();
+    if(!reqSnap.empty){
+      await reqSnap.docs[0].ref.update({ attendanceCount: count, eligible, updatedAt: FieldValue.serverTimestamp() });
+    }
+
+    showMsg(msg, "ok", `تم تسجيل حضورك في ${date} ✓ — عدد مرات حضورك بقى ${count}.`);
+
+    const mainMsg = document.getElementById("certMsg");
+    if(eligible){
+      showMsg(mainMsg, "ok", `🎉 مبروك! حضورك بقى كفاية (${count} مرة) للحصول على شهادة.`);
+    } else {
+      showMsg(mainMsg, "info", `عدد مرات حضورك لسه ناقص — حضرت ${count} من أصل ${CERT_REQUIRED_ATTENDANCE}.`);
+    }
+
+    const daysList = document.getElementById("certDaysList");
+    if(daysList.style.display !== "none"){
+      daysList.style.display = "none";
+      await toggleCertAttendedDays();
+    }
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء التسجيل، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
+
 async function toggleCertAttendedDays(){
   const wrap = document.getElementById("certDaysList");
   const opening = wrap.style.display === "none";
@@ -900,9 +1034,10 @@ async function toggleCertAttendedDays(){
 
   wrap.innerHTML = `<span class="empty">بيتحمّل...</span>`;
   try{
+    // ملحوظة: من غير orderBy هنا عشان نتجنب احتياج إندكس مركّب في فايرستور — بنرتب في الجافاسكريبت بدل كده
     const snap = await db.collection("teams").doc(certCurrentTeam.id).collection("attendance")
-      .where("memberId", "==", certCurrentMember.id).orderBy("date", "desc").get();
-    const dates = snap.docs.map(d => d.data().date);
+      .where("memberId", "==", certCurrentMember.id).get();
+    const dates = snap.docs.map(d => d.data().date).sort((a,b) => b.localeCompare(a));
     wrap.innerHTML = dates.length
       ? dates.map(d => `<span class="chip">${escapeHtml(d)}</span>`).join("")
       : `<span class="empty">لسه مفيش أيام حضور مسجّلة.</span>`;
@@ -975,6 +1110,7 @@ function goHome(){
   currentTeamId = null;
   adminPickedTeamId = null;
   stopGlobalCountdown();
+  stopRecoverCountdown();
   showView("view-home");
   location.hash = "";
 }
@@ -1298,6 +1434,7 @@ function openAdminTeamPicker(){
   document.getElementById("newMasterCodeInput").value = "";
   document.getElementById("changeMasterCodeMsg").className = "msg";
   stopGlobalCountdown();
+  stopRecoverCountdown();
   showView("view-admin-pick");
   location.hash = "admin";
 }
@@ -1308,6 +1445,7 @@ async function onAdminTeamSelectChange(){
   document.getElementById("adminGlobalSection").style.display = "none";
   document.getElementById("adminCertificatesSection").style.display = "none";
   stopGlobalCountdown();
+  stopRecoverCountdown();
   if(!val) return;
 
   try{
@@ -1361,9 +1499,13 @@ async function enterAdminPanel(teamId){
   document.getElementById("adminNewMemberInput").value = "";
   document.getElementById("adminAddMemberMsg").className = "msg";
   document.getElementById("adminEditMemberMsg").className = "msg";
+  document.getElementById("recoverDateInput").value = todayStr();
+  setCodeBoxesValue("recoverCodeInput", "");
+  document.getElementById("recoverMsg").className = "msg";
   await ensureTeamDoc(teamId);
   await loadMembers(teamId);
   renderAdminEditMembersList();
+  await resumeRecoverCountdownIfActive(teamId);
 }
 
 async function adminAddMember(){
@@ -1568,6 +1710,96 @@ async function resumeGlobalCountdownIfActive(){
       startGlobalCountdown(data.sessionExpiresAt, data.sessionCode);
     } else {
       stopGlobalCountdown();
+    }
+  }catch(e){
+    console.error(e);
+  }
+}
+
+/* ===================== كود تسجيل حضور يوم فات (استدراك) ===================== */
+function isRecoverCodeActive(teamData, dateStr){
+  if(!teamData) return false;
+  if(!teamData.recoverCode || !teamData.recoverDate) return false;
+  if(dateStr && teamData.recoverDate !== dateStr) return false;
+  if(!teamData.recoverExpiresAt || Date.now() > teamData.recoverExpiresAt) return false;
+  return true;
+}
+
+async function activateRecoverCode(){
+  const msg = document.getElementById("recoverMsg");
+  const date = document.getElementById("recoverDateInput").value;
+  const code = document.getElementById("recoverCodeInput").value.trim();
+  if(!date){ showMsg(msg, "err", "اختار التاريخ الأول."); return; }
+  if(!code){ showMsg(msg, "err", "اكتب الكود الأول."); return; }
+  await applyRecoverCode(date, code);
+}
+
+async function generateRecoverCode(){
+  const date = document.getElementById("recoverDateInput").value || todayStr();
+  document.getElementById("recoverDateInput").value = date;
+  const code = String(Math.floor(1000 + Math.random()*9000));
+  setCodeBoxesValue("recoverCodeInput", code);
+  await applyRecoverCode(date, code);
+}
+
+async function applyRecoverCode(date, code){
+  const msg = document.getElementById("recoverMsg");
+  msg.className = "msg";
+  try{
+    showLoading();
+    const expiresAt = Date.now() + SESSION_CODE_TTL_MS;
+    await db.collection("teams").doc(currentTeamId).update({
+      recoverCode: code, recoverDate: date, recoverExpiresAt: expiresAt
+    });
+    showMsg(msg, "ok", `تم تفعيل الكود "${code}" ليوم ${date} لمدة 10 دقايق ✓`);
+    startRecoverCountdown(expiresAt, code, date);
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء التفعيل، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
+
+let recoverCountdownTimer = null;
+function stopRecoverCountdown(){
+  if(recoverCountdownTimer){ clearInterval(recoverCountdownTimer); recoverCountdownTimer = null; }
+  const wrap = document.getElementById("recoverCountdownWrap");
+  if(wrap) wrap.style.display = "none";
+  setReadonlyCodeDisplay("recoverActiveCodeDisplay", "");
+}
+function startRecoverCountdown(expiresAt, code, date){
+  stopRecoverCountdown();
+  const wrap = document.getElementById("recoverCountdownWrap");
+  const label = document.getElementById("recoverCountdownLabel");
+  document.getElementById("recoverActiveDateLabel").textContent = date || "";
+  wrap.style.display = "block";
+  if(code) setReadonlyCodeDisplay("recoverActiveCodeDisplay", code);
+  function tick(){
+    const remain = expiresAt - Date.now();
+    if(remain <= 0){
+      label.textContent = "00:00";
+      stopRecoverCountdown();
+      const msg = document.getElementById("recoverMsg");
+      if(msg) showMsg(msg, "err", "انتهت صلاحية الكود، فعّل كود جديد لو محتاج.");
+      return;
+    }
+    const totalSec = Math.ceil(remain / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    label.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  }
+  tick();
+  recoverCountdownTimer = setInterval(tick, 1000);
+}
+async function resumeRecoverCountdownIfActive(teamId){
+  try{
+    const snap = await db.collection("teams").doc(teamId).get();
+    const data = snap.exists ? snap.data() : {};
+    if(isRecoverCodeActive(data)){
+      startRecoverCountdown(data.recoverExpiresAt, data.recoverCode, data.recoverDate);
+    } else {
+      stopRecoverCountdown();
     }
   }catch(e){
     console.error(e);
