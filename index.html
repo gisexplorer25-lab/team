@@ -379,14 +379,25 @@
     <p class="section-label">الحصول على شهادة</p>
     <div class="card" style="max-width:480px;">
       <h3>🎓 طلب شهادة</h3>
-      <div class="hint" style="margin:0 0 10px;">اكتب اسمك بالعربي بالظبط زي ما هو مسجّل في قائمة أعضاء البرنامج، واختار البرنامج اللي حضرت فيه.</div>
-      <label>الاسم بالعربي</label>
-      <input type="text" id="certNameAr" placeholder="اكتب اسمك بالعربي">
-      <label>الاسم بالإنجليزي</label>
-      <input type="text" id="certNameEn" placeholder="Write your name in English">
+      <div class="hint" style="margin:0 0 10px;">اختار البرنامج، وبعدين اختار اسمك من قائمة الأعضاء المسجّلين.</div>
+
       <label>اختر البرنامج</label>
-      <select id="certTeamSelect"><option value="">— اختر البرنامج —</option></select>
-      <button class="primary" id="certSubmitBtn" onclick="submitCertificateRequest()">حفظ</button>
+      <select id="certTeamSelect" onchange="onCertTeamChange()"><option value="">— اختر البرنامج —</option></select>
+
+      <div id="certMemberWrap" style="display:none;">
+        <label>اختر اسمك من القائمة</label>
+        <select id="certMemberSelect" onchange="onCertMemberChange()"><option value="">— اختر من القائمة —</option></select>
+      </div>
+
+      <div id="certNameConfirmWrap" style="display:none;margin-top:12px;padding-top:14px;border-top:1.5px dashed var(--line);">
+        <div class="hint" style="margin:0 0 10px;">ده الاسم اللي هيتكتب في الشهادة — لو تمام سيبه زي ما هو، ولو عايز تعدّله (تصحيح إملائي، إضافة لقب..) اكتبه زي ما عايزه بالظبط.</div>
+        <label>الاسم بالعربي (زي ما هيتكتب في الشهادة)</label>
+        <input type="text" id="certNameAr" placeholder="اكتب اسمك بالعربي">
+        <label>الاسم بالإنجليزي (زي ما هيتكتب في الشهادة)</label>
+        <input type="text" id="certNameEn" placeholder="Write your name in English">
+        <button class="primary" id="certSubmitBtn" onclick="submitCertificateRequest()">حفظ</button>
+      </div>
+
       <div class="msg" id="certMsg"></div>
 
       <div id="certLowAttendanceWrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1.5px dashed var(--line);">
@@ -759,27 +770,77 @@ function showView(id){
 const CERT_REQUIRED_ATTENDANCE = 5;
 let certCurrentMember = null;
 let certCurrentTeam = null;
+let certTeamMembersCache = [];
 
 function openCertificateView(){
-  document.getElementById("certNameAr").value = "";
-  document.getElementById("certNameEn").value = "";
   const sel = document.getElementById("certTeamSelect");
   sel.innerHTML = `<option value="">— اختر البرنامج —</option>` +
     TEAMS.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
   sel.value = "";
+  document.getElementById("certMemberSelect").innerHTML = `<option value="">— اختر من القائمة —</option>`;
+  document.getElementById("certMemberWrap").style.display = "none";
+  document.getElementById("certNameConfirmWrap").style.display = "none";
+  document.getElementById("certNameAr").value = "";
+  document.getElementById("certNameEn").value = "";
   document.getElementById("certMsg").className = "msg";
   document.getElementById("certLowAttendanceWrap").style.display = "none";
   document.getElementById("certDaysList").style.display = "none";
   document.getElementById("certDaysList").innerHTML = "";
   certCurrentMember = null;
   certCurrentTeam = null;
+  certTeamMembersCache = [];
   showView("view-certificate");
   location.hash = "certificate";
 }
 
 async function fetchTeamMembersRaw(teamId){
-  const snap = await db.collection("teams").doc(teamId).collection("members").get();
+  const snap = await db.collection("teams").doc(teamId).collection("members").orderBy("name").get();
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+async function onCertTeamChange(){
+  const teamId = document.getElementById("certTeamSelect").value;
+  document.getElementById("certMemberWrap").style.display = "none";
+  document.getElementById("certNameConfirmWrap").style.display = "none";
+  document.getElementById("certMsg").className = "msg";
+  document.getElementById("certLowAttendanceWrap").style.display = "none";
+  certCurrentMember = null;
+  certCurrentTeam = null;
+  if(!teamId) return;
+
+  const team = TEAMS.find(t => t.id === teamId);
+  const memberSel = document.getElementById("certMemberSelect");
+  try{
+    showLoading();
+    await ensureTeamDoc(teamId);
+    certTeamMembersCache = await fetchTeamMembersRaw(teamId);
+    certCurrentTeam = team;
+    memberSel.innerHTML = `<option value="">— اختر من القائمة —</option>` +
+      certTeamMembersCache.map(m => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("");
+    memberSel.value = "";
+    document.getElementById("certMemberWrap").style.display = "block";
+  }catch(e){
+    console.error(e);
+    showMsg(document.getElementById("certMsg"), "err", "حصل خطأ في تحميل قائمة الأعضاء، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
+
+function onCertMemberChange(){
+  const memberId = document.getElementById("certMemberSelect").value;
+  document.getElementById("certNameConfirmWrap").style.display = "none";
+  document.getElementById("certLowAttendanceWrap").style.display = "none";
+  document.getElementById("certMsg").className = "msg";
+  certCurrentMember = null;
+  if(!memberId) return;
+
+  const member = certTeamMembersCache.find(m => m.id === memberId);
+  if(!member) return;
+  certCurrentMember = member;
+  document.getElementById("certNameAr").value = member.name || "";
+  document.getElementById("certNameEn").value = "";
+  document.getElementById("certNameConfirmWrap").style.display = "block";
 }
 
 async function submitCertificateRequest(){
@@ -791,35 +852,24 @@ async function submitCertificateRequest(){
 
   const nameAr = document.getElementById("certNameAr").value.trim();
   const nameEn = document.getElementById("certNameEn").value.trim();
-  const teamId = document.getElementById("certTeamSelect").value;
 
-  if(!nameAr){ showMsg(msg, "err", "اكتب اسمك بالعربي."); return; }
-  if(!nameEn){ showMsg(msg, "err", "اكتب اسمك بالإنجليزي."); return; }
-  if(!teamId){ showMsg(msg, "err", "اختار البرنامج."); return; }
+  if(!certCurrentMember || !certCurrentTeam){ showMsg(msg, "err", "اختار البرنامج واسمك من القائمة الأول."); return; }
+  if(!nameAr){ showMsg(msg, "err", "اكتب الاسم بالعربي اللي هيتكتب في الشهادة."); return; }
+  if(!nameEn){ showMsg(msg, "err", "اكتب الاسم بالإنجليزي اللي هيتكتب في الشهادة."); return; }
 
-  const team = TEAMS.find(t => t.id === teamId);
+  const member = certCurrentMember;
+  const team = certCurrentTeam;
 
   try{
     showLoading();
-    await ensureTeamDoc(teamId);
-    const members = await fetchTeamMembersRaw(teamId);
-    const member = members.find(m => (m.name || "").trim().toLowerCase() === nameAr.toLowerCase());
-
-    if(!member){
-      showMsg(msg, "err", "الاسم ده مش موجود في قائمة أعضاء البرنامج ده. اتأكد إنك كاتب اسمك زي ما هو مسجّل بالظبط، أو كلم إدارة البرنامج.");
-      return;
-    }
-
-    certCurrentMember = member;
-    certCurrentTeam = team;
     const count = member.attendanceCount || 0;
     const eligible = count >= CERT_REQUIRED_ATTENDANCE;
 
     // امنع تكرار نفس الطلب لنفس العضو في نفس البرنامج، وحدّث بياناته بدل ما يتضاعف
     const existing = await db.collection("certificateRequests")
-      .where("memberId", "==", member.id).where("teamId", "==", teamId).limit(1).get();
+      .where("memberId", "==", member.id).where("teamId", "==", team.id).limit(1).get();
     const payload = {
-      memberId: member.id, nameAr, nameEn, teamId, teamName: team.name,
+      memberId: member.id, nameAr, nameEn, teamId: team.id, teamName: team.name,
       attendanceCount: count, eligible, updatedAt: FieldValue.serverTimestamp()
     };
     if(!existing.empty){
