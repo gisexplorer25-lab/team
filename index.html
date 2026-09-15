@@ -78,11 +78,6 @@
   }
   .team-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);border-color:var(--amber);}
   .team-card .idx{font-size:10.5px;color:var(--ink-soft);font-family:'Cairo';font-weight:700;}
-  .badge-missing{
-    position:absolute;top:8px;left:8px;background:var(--red);color:#fff;
-    font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;font-family:'Cairo';
-    display:none;
-  }
   .team-card .name{font-family:'Cairo';font-weight:800;font-size:15px;margin:4px 0 1px;}
   .team-card .sub{font-size:11px;color:var(--ink-soft);}
 
@@ -228,6 +223,27 @@
   }
   .pick-item:hover{border-color:var(--amber);background:var(--paper-2);}
   .pick-item .name{font-family:'Cairo';font-weight:700;}
+
+  /* ===================== كارت الشهادات في الصفحة الرئيسية ===================== */
+  .cert-cta{
+    display:flex;align-items:center;gap:16px;
+    background:linear-gradient(135deg, var(--green-deep), var(--green));
+    color:#fff;border-radius:var(--radius);padding:20px 22px;margin-bottom:26px;
+    cursor:pointer;box-shadow:var(--shadow-hover);
+    transition:transform .15s ease;
+  }
+  .cert-cta:hover{transform:translateY(-2px);}
+  .cert-cta-icon{font-size:30px;flex:0 0 auto;}
+  .cert-cta-text{flex:1;}
+  .cert-cta-title{font-family:'Cairo';font-weight:800;font-size:17px;}
+  .cert-cta-sub{font-size:12.5px;opacity:.88;margin-top:3px;}
+  .cert-cta-arrow{font-size:20px;flex:0 0 auto;opacity:.85;}
+  @media (max-width:480px){
+    .cert-cta{padding:16px 16px;gap:12px;margin-bottom:18px;}
+    .cert-cta-icon{font-size:24px;}
+    .cert-cta-title{font-size:15px;}
+    .cert-cta-sub{font-size:11.5px;}
+  }
 </style>
 </head>
 <body>
@@ -240,16 +256,16 @@
     <div style="font-size:13px;color:#6b7a71;margin-top:4px;" id="pdfReportDate"></div>
   </div>
   <canvas id="pdfReportChart" width="720" height="320" style="display:block;margin:0 auto 22px;"></canvas>
-  <div style="display:flex;gap:14px;margin-bottom:22px;" id="pdfReportStatsRow">
-    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;" id="pdfReportTopCard">
-      <div style="font-size:12px;color:#6b7a71;" id="pdfReportTopLabel">الأكثر حضورًا</div>
+  <div style="display:flex;gap:14px;margin-bottom:22px;">
+    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;">
+      <div style="font-size:12px;color:#6b7a71;">الأكثر حضورًا</div>
       <div style="font-size:15px;font-weight:800;margin-top:6px;font-family:'Cairo',sans-serif;color:#bd6a34;" id="pdfReportTop"></div>
     </div>
-    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;" id="pdfReportBottomCard">
+    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;">
       <div style="font-size:12px;color:#6b7a71;">الأقل حضورًا</div>
       <div style="font-size:15px;font-weight:800;margin-top:6px;font-family:'Cairo',sans-serif;color:#a4402f;" id="pdfReportBottom"></div>
     </div>
-    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;" id="pdfReportAvgCard">
+    <div style="flex:1;border:1px solid #dde2da;border-radius:10px;padding:14px;text-align:center;">
       <div style="font-size:12px;color:#6b7a71;">متوسط الحضور للعضو</div>
       <div style="font-size:15px;font-weight:800;margin-top:6px;font-family:'Cairo',sans-serif;color:#24463b;" id="pdfReportAvg"></div>
     </div>
@@ -265,6 +281,15 @@
 <main>
 
   <div class="view active" id="view-home">
+    <div class="cert-cta" onclick="openCertificateView()">
+      <div class="cert-cta-icon">🎓</div>
+      <div class="cert-cta-text">
+        <div class="cert-cta-title">عايز شهادتك؟</div>
+        <div class="cert-cta-sub">اكتب اسمك بالعربي والإنجليزي، اختار البرنامج، واعرف موقفك من الشهادة</div>
+      </div>
+      <div class="cert-cta-arrow">←</div>
+    </div>
+
     <p class="lede">اختر تيم الإرشاد لتسجيل الحضور أو لمتابعة الأكثر حضورًا.</p>
     <p class="section-label">التيمات</p>
     <div class="team-grid" id="teamGrid"></div>
@@ -347,19 +372,26 @@
         </table>
         <div class="empty" id="boardEmpty" style="display:none;">لسه مفيش أعضاء مسجّلين في التيم ده</div>
       </div>
+    </div>
+  </div>
 
-      <div class="card">
-        <h3>حضور يوم معين</h3>
-        <div class="hint" style="margin:0 0 10px;">اختار يوم من التقويم عشان تشوف مين حضر بالظبط في اليوم ده.</div>
-        <div class="row">
-          <input type="date" id="boardDayInput">
-          <button class="primary" style="flex:0 0 auto;" onclick="loadBoardDay()">عرض حضور اليوم ده</button>
-        </div>
-        <div class="msg" id="boardDayMsg"></div>
-        <div id="boardDayResultWrap" style="display:none;margin-top:16px;">
-          <h3 style="margin:0 0 10px;">الحاضرون يوم <span id="boardDayResultLabel"></span> (<span id="boardDayResultCount">0</span>)</h3>
-          <div class="today-list" id="boardDayResultList"></div>
-        </div>
+  <div class="view" id="view-certificate">
+    <p class="section-label">الحصول على شهادة</p>
+    <div class="card" style="max-width:480px;">
+      <h3>🎓 طلب شهادة</h3>
+      <div class="hint" style="margin:0 0 10px;">اكتب اسمك بالعربي بالظبط زي ما هو مسجّل في قائمة أعضاء البرنامج، واختار البرنامج اللي حضرت فيه.</div>
+      <label>الاسم بالعربي</label>
+      <input type="text" id="certNameAr" placeholder="اكتب اسمك بالعربي">
+      <label>الاسم بالإنجليزي</label>
+      <input type="text" id="certNameEn" placeholder="Write your name in English">
+      <label>اختر البرنامج</label>
+      <select id="certTeamSelect"><option value="">— اختر البرنامج —</option></select>
+      <button class="primary" id="certSubmitBtn" onclick="submitCertificateRequest()">حفظ</button>
+      <div class="msg" id="certMsg"></div>
+
+      <div id="certLowAttendanceWrap" style="display:none;margin-top:14px;padding-top:14px;border-top:1.5px dashed var(--line);">
+        <button class="ghost" type="button" onclick="toggleCertAttendedDays()" id="certDaysToggleBtn">📅 اعرض الأيام اللي حضرتها</button>
+        <div class="today-list" id="certDaysList" style="display:none;margin-top:10px;"></div>
       </div>
     </div>
   </div>
@@ -383,6 +415,7 @@
       <select id="adminTeamSelect" onchange="onAdminTeamSelectChange()">
         <option value="">— اختر تيم —</option>
         <option value="__global__">🌍 كل التيمات دفعة واحدة (كود جلسة موحّد)</option>
+        <option value="__certificates__">📜 طلبات الشهادات</option>
       </select>
     </div>
 
@@ -419,27 +452,13 @@
       </div>
 
       <div class="card">
-        <h3>بيانات الحضور — عرض وتصدير</h3>
-        <div class="hint" style="margin:0 0 10px;">سيب حقل اليوم فاضي عشان تشوف/تصدّر كل سجل الحضور، أو اختار يوم معين عشان تقتصر البيانات عليه بس. تقدر تعرض الجدول هنا في الصفحة، أو تحمّله إكسيل، أو تقرير PDF.</div>
-        <label>يوم معين (اختياري)</label>
+        <h3>تصدير بيانات الحضور</h3>
+        <div class="hint" style="margin:0 0 10px;">حمّل ملف إكسيل فيه ملخص حضور كل عضو وسجل تفصيلي بكل يوم، أو تقرير PDF فيه رسم بياني يوضح الأكثر والأقل حضورًا.</div>
         <div class="row">
-          <input type="date" id="adminExportDateFilter">
-          <button class="ghost" style="flex:0 0 auto;" onclick="clearAdminExportDateFilter()">إلغاء الفلتر — كل الأيام</button>
-        </div>
-        <div class="row" style="margin-top:12px;">
-          <button class="primary" style="flex:0 0 auto;" onclick="adminShowAttendanceTable()">👁️ عرض الجدول هنا</button>
           <button class="primary" style="flex:0 0 auto;" onclick="adminExportExcel()">📊 تحميل Excel</button>
           <button class="ghost" style="flex:0 0 auto;margin-top:16px;" onclick="adminExportPDF()">📄 تحميل تقرير PDF</button>
         </div>
         <div class="msg" id="adminExportMsg"></div>
-        <div id="adminAttendanceTableWrap" style="display:none;margin-top:18px;">
-          <h3 id="adminAttendanceTableTitle" style="margin:0 0 10px;"></h3>
-          <table>
-            <thead><tr><th>التاريخ</th><th>الاسم</th></tr></thead>
-            <tbody id="adminAttendanceTableBody"></tbody>
-          </table>
-          <div class="empty" id="adminAttendanceTableEmpty" style="display:none;">مفيش بيانات حضور في الفترة دي</div>
-        </div>
       </div>
     </div>
 
@@ -451,7 +470,7 @@
 
       <div class="card">
         <h3>تفعيل كود جلسة موحّد لكل التيمات</h3>
-        <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة. الكود بيفضل شغال من غير أي وقت محدد لحد ما تلغي تفعيله بنفسك.</div>
+        <div class="hint" style="margin:0 0 10px;">اكتب أي كود تحبه ودوس "تفعيل"، وهيتسجّل نفس الكود لكل التيمات (<span id="teamsCountLabel">0</span> تيمات) دفعة واحدة. الكود بيفضل شغال 10 دقايق بس من وقت التفعيل وبعدها بيبقى مش صالح.</div>
         <label>كود الجلسة</label>
         <div class="code-boxes" data-code-boxes-for="globalSessionCodeInput">
           <input type="text" inputmode="numeric" maxlength="1" class="code-box">
@@ -465,21 +484,39 @@
           <button class="ghost" style="flex:0 0 auto;margin-top:16px;" onclick="generateGlobalSessionCode()">توليد كود عشوائي وتفعيله</button>
         </div>
         <div class="msg" id="globalSessionMsg"></div>
-        <div id="globalActiveWrap" style="display:none;margin-top:14px;">
-          <div class="hint" style="margin:0 0 8px;">الكود ده نشط دلوقتي لكل التيمات ومفيش له وقت انتهاء — هيفضل شغال لحد ما تدوس "إلغاء التفعيل".</div>
+        <div id="globalCountdownWrap" style="display:none;margin-top:14px;">
+          <div class="hint" style="margin:0 0 8px;">الكود النشط دلوقتي — الوقت المتبقي: <strong id="globalCountdownLabel">10:00</strong></div>
           <div class="code-boxes readonly" id="globalActiveCodeDisplay">
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
             <input type="text" class="code-box" tabindex="-1" readonly>
           </div>
-          <button class="ghost" style="flex:0 0 auto;margin-top:14px;" onclick="deactivateGlobalSessionCode()">إلغاء تفعيل الكود لكل التيمات</button>
         </div>
       </div>
 
       <div class="card">
         <h3>حالة كود اليوم في كل تيم</h3>
         <div id="globalTeamsStatus"><div class="empty">بيتحمّل...</div></div>
+      </div>
+    </div>
+
+    <div id="adminCertificatesSection" style="display:none;">
+      <div class="team-hero">
+        <h2>📜 طلبات الشهادات</h2>
+        <div class="today" id="certTodayLabel"></div>
+      </div>
+
+      <div class="card">
+        <h3>كل طلبات الشهادات (<span id="certRequestsCount">0</span>)</h3>
+        <div class="hint" style="margin:0 0 10px;">القائمة دي فيها كل اللي طلبوا شهادة، سواء كان حضورهم كفاية أو لسه ناقص. لو حد طلب أكتر من مرة لنفس البرنامج، بيتحدّث نفس الصف بدل ما يتكرر.</div>
+        <table>
+          <thead><tr><th>الاسم بالعربي</th><th>الاسم بالإنجليزي</th><th>البرنامج</th><th>الحضور</th><th>الحالة</th></tr></thead>
+          <tbody id="certRequestsBody"></tbody>
+        </table>
+        <div class="empty" id="certRequestsEmpty" style="display:none;">لسه مفيش طلبات شهادات.</div>
+        <button class="primary" onclick="adminExportCertificatesExcel()">📊 تحميل Excel بالأسماء</button>
+        <div class="msg" id="certExportMsg"></div>
       </div>
     </div>
 
@@ -601,12 +638,6 @@ function todayStr(){
 function todayDisplay(){
   return new Date().toLocaleDateString("ar-EG", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
 }
-function formatDateDisplay(dateStr){
-  if(!dateStr) return "";
-  const [y,m,d] = dateStr.split("-").map(Number);
-  if(!y||!m||!d) return dateStr;
-  return new Date(y, m-1, d).toLocaleDateString("ar-EG", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
-}
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
@@ -677,10 +708,11 @@ function initCodeBoxes(){
   });
 }
 
-const SESSION_CODE_TTL_MS = 10 * 60 * 1000; // (لم تعد مستخدمة لإنهاء صلاحية كود اليوم الموحّد — الكود بيفضل شغال لحد ما يتم إلغاء تفعيله يدويًا)
+const SESSION_CODE_TTL_MS = 10 * 60 * 1000; // كود الجلسة بيفضل شغال 10 دقايق بس من وقت التفعيل
 function isSessionCodeActive(teamData){
   if(!teamData) return false;
   if(!teamData.sessionCode || teamData.sessionDate !== todayStr()) return false;
+  if(!teamData.sessionExpiresAt || Date.now() > teamData.sessionExpiresAt) return false;
   return true;
 }
 
@@ -722,13 +754,179 @@ function showView(id){
   document.getElementById(id).classList.add("active");
   document.getElementById("backBtn").classList.toggle("show", id !== "view-home");
 }
+
+/* ===================== طلب الشهادات ===================== */
+const CERT_REQUIRED_ATTENDANCE = 5;
+let certCurrentMember = null;
+let certCurrentTeam = null;
+
+function openCertificateView(){
+  document.getElementById("certNameAr").value = "";
+  document.getElementById("certNameEn").value = "";
+  const sel = document.getElementById("certTeamSelect");
+  sel.innerHTML = `<option value="">— اختر البرنامج —</option>` +
+    TEAMS.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+  sel.value = "";
+  document.getElementById("certMsg").className = "msg";
+  document.getElementById("certLowAttendanceWrap").style.display = "none";
+  document.getElementById("certDaysList").style.display = "none";
+  document.getElementById("certDaysList").innerHTML = "";
+  certCurrentMember = null;
+  certCurrentTeam = null;
+  showView("view-certificate");
+  location.hash = "certificate";
+}
+
+async function fetchTeamMembersRaw(teamId){
+  const snap = await db.collection("teams").doc(teamId).collection("members").get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+async function submitCertificateRequest(){
+  const msg = document.getElementById("certMsg");
+  msg.className = "msg";
+  document.getElementById("certLowAttendanceWrap").style.display = "none";
+  document.getElementById("certDaysList").style.display = "none";
+  document.getElementById("certDaysList").innerHTML = "";
+
+  const nameAr = document.getElementById("certNameAr").value.trim();
+  const nameEn = document.getElementById("certNameEn").value.trim();
+  const teamId = document.getElementById("certTeamSelect").value;
+
+  if(!nameAr){ showMsg(msg, "err", "اكتب اسمك بالعربي."); return; }
+  if(!nameEn){ showMsg(msg, "err", "اكتب اسمك بالإنجليزي."); return; }
+  if(!teamId){ showMsg(msg, "err", "اختار البرنامج."); return; }
+
+  const team = TEAMS.find(t => t.id === teamId);
+
+  try{
+    showLoading();
+    await ensureTeamDoc(teamId);
+    const members = await fetchTeamMembersRaw(teamId);
+    const member = members.find(m => (m.name || "").trim().toLowerCase() === nameAr.toLowerCase());
+
+    if(!member){
+      showMsg(msg, "err", "الاسم ده مش موجود في قائمة أعضاء البرنامج ده. اتأكد إنك كاتب اسمك زي ما هو مسجّل بالظبط، أو كلم إدارة البرنامج.");
+      return;
+    }
+
+    certCurrentMember = member;
+    certCurrentTeam = team;
+    const count = member.attendanceCount || 0;
+    const eligible = count >= CERT_REQUIRED_ATTENDANCE;
+
+    // امنع تكرار نفس الطلب لنفس العضو في نفس البرنامج، وحدّث بياناته بدل ما يتضاعف
+    const existing = await db.collection("certificateRequests")
+      .where("memberId", "==", member.id).where("teamId", "==", teamId).limit(1).get();
+    const payload = {
+      memberId: member.id, nameAr, nameEn, teamId, teamName: team.name,
+      attendanceCount: count, eligible, updatedAt: FieldValue.serverTimestamp()
+    };
+    if(!existing.empty){
+      await existing.docs[0].ref.update(payload);
+    } else {
+      await db.collection("certificateRequests").add({ ...payload, createdAt: FieldValue.serverTimestamp() });
+    }
+
+    if(!eligible){
+      showMsg(msg, "info", `عدد مرات حضورك قليل — حضرت ${count} من أصل ${CERT_REQUIRED_ATTENDANCE} مرات مطلوبة للحصول على الشهادة.`);
+      document.getElementById("certLowAttendanceWrap").style.display = "block";
+    } else {
+      showMsg(msg, "ok", `🎉 مبروك يا ${nameAr}! حضورك كفاية (${count} مرة) للحصول على شهادة. هيتم التواصل معاك لاستلامها.`);
+    }
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء الحفظ، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
+
+async function toggleCertAttendedDays(){
+  const wrap = document.getElementById("certDaysList");
+  const opening = wrap.style.display === "none";
+  wrap.style.display = opening ? "flex" : "none";
+  if(!opening || !certCurrentMember || !certCurrentTeam) return;
+
+  wrap.innerHTML = `<span class="empty">بيتحمّل...</span>`;
+  try{
+    const snap = await db.collection("teams").doc(certCurrentTeam.id).collection("attendance")
+      .where("memberId", "==", certCurrentMember.id).orderBy("date", "desc").get();
+    const dates = snap.docs.map(d => d.data().date);
+    wrap.innerHTML = dates.length
+      ? dates.map(d => `<span class="chip">${escapeHtml(d)}</span>`).join("")
+      : `<span class="empty">لسه مفيش أيام حضور مسجّلة.</span>`;
+  }catch(e){
+    console.error(e);
+    wrap.innerHTML = `<span class="empty">حصل خطأ في تحميل الأيام، حاول تاني.</span>`;
+  }
+}
+
+/* ===================== لوحة المسؤول: طلبات الشهادات ===================== */
+let certRequestsCache = [];
+
+async function enterCertificatesAdminPanel(){
+  document.getElementById("certTodayLabel").textContent = todayDisplay();
+  document.getElementById("certExportMsg").className = "msg";
+  const snap = await db.collection("certificateRequests").orderBy("createdAt", "desc").get();
+  certRequestsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderCertificateRequests();
+}
+
+function renderCertificateRequests(){
+  const body = document.getElementById("certRequestsBody");
+  const empty = document.getElementById("certRequestsEmpty");
+  document.getElementById("certRequestsCount").textContent = certRequestsCache.length;
+  if(!certRequestsCache.length){
+    body.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  body.innerHTML = certRequestsCache.map(r => `
+    <tr>
+      <td>${escapeHtml(r.nameAr || "")}</td>
+      <td>${escapeHtml(r.nameEn || "")}</td>
+      <td>${escapeHtml(r.teamName || "")}</td>
+      <td class="count">${r.attendanceCount || 0}</td>
+      <td>${r.eligible
+        ? '<span style="color:var(--green-deep);font-weight:800;">جاهز ✓</span>'
+        : '<span style="color:var(--red);font-weight:800;">حضور ناقص</span>'}</td>
+    </tr>
+  `).join("");
+}
+
+async function adminExportCertificatesExcel(){
+  const msg = document.getElementById("certExportMsg");
+  msg.className = "msg";
+  if(!certRequestsCache.length){ showMsg(msg, "err", "لسه مفيش طلبات شهادات."); return; }
+  try{
+    showLoading();
+    const rows = certRequestsCache.map(r => ({
+      "الاسم بالعربي": r.nameAr || "",
+      "الاسم بالإنجليزي": r.nameEn || "",
+      "البرنامج": r.teamName || "",
+      "عدد مرات الحضور": r.attendanceCount || 0,
+      "الحالة": r.eligible ? "جاهز للشهادة" : "حضور ناقص"
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, "طلبات الشهادات");
+    XLSX.writeFile(wb, `طلبات-الشهادات-${todayStr()}.xlsx`);
+    showMsg(msg, "ok", "تم تحميل ملف الإكسيل ✓");
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء تجهيز الملف، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
 function goHome(){
   currentTeamId = null;
   adminPickedTeamId = null;
-  hideGlobalActivePanel();
+  stopGlobalCountdown();
   showView("view-home");
   location.hash = "";
-  refreshHomeBadges();
 }
 
 function renderHome(){
@@ -738,28 +936,11 @@ function renderHome(){
     const el = document.createElement("div");
     el.className = "team-card";
     el.onclick = () => openTeam(t.id);
-    el.innerHTML = `<div class="badge-missing" id="badge-${t.id}">لسه محضرش النهاردة</div>
-                     <div class="idx">فريق ${String(i+1).padStart(2,"0")}</div>
+    el.innerHTML = `<div class="idx">فريق ${String(i+1).padStart(2,"0")}</div>
                      <div class="name">${t.name}</div>
                      <div class="sub">تسجيل حضور وترتيب الأكثر حضورًا</div>`;
     grid.appendChild(el);
   });
-  refreshHomeBadges();
-}
-
-async function refreshHomeBadges(){
-  const date = todayStr();
-  await Promise.all(TEAMS.map(async t => {
-    const badge = document.getElementById(`badge-${t.id}`);
-    if(!badge) return;
-    try{
-      const snap = await db.collection("teams").doc(t.id).collection("attendance")
-        .where("date","==",date).limit(1).get();
-      badge.style.display = snap.empty ? "block" : "none";
-    }catch(e){
-      console.error(e);
-    }
-  }));
 }
 
 async function openTeam(teamId){
@@ -776,9 +957,6 @@ async function openTeam(teamId){
   setCodeBoxesValue("leaderCodeInput", "");
   document.getElementById("leaderMsg").className = "msg";
   document.getElementById("leaderFormWrap").style.display = "none";
-  document.getElementById("boardDayInput").value = "";
-  document.getElementById("boardDayMsg").className = "msg";
-  document.getElementById("boardDayResultWrap").style.display = "none";
 
   try{
     showLoading();
@@ -1032,32 +1210,6 @@ function renderLeaderboard(){
   `).join("");
 }
 
-async function loadBoardDay(){
-  const msg = document.getElementById("boardDayMsg");
-  msg.className = "msg";
-  const date = document.getElementById("boardDayInput").value;
-  if(!date){ showMsg(msg, "err", "اختار يوم الأول."); return; }
-  const wrap = document.getElementById("boardDayResultWrap");
-  try{
-    showLoading();
-    const snap = await db.collection("teams").doc(currentTeamId).collection("attendance")
-      .where("date","==",date).get();
-    const names = snap.docs.map(d=>d.data().memberName).sort((a,b)=>a.localeCompare(b,"ar"));
-    document.getElementById("boardDayResultLabel").textContent = formatDateDisplay(date);
-    document.getElementById("boardDayResultCount").textContent = names.length;
-    const list = document.getElementById("boardDayResultList");
-    list.innerHTML = names.length
-      ? names.map(n=>`<span class="chip">${escapeHtml(n)}</span>`).join("")
-      : `<span class="empty">محدش سجّل حضوره في اليوم ده</span>`;
-    wrap.style.display = "block";
-  }catch(e){
-    console.error(e);
-    showMsg(msg, "err", "حصل خطأ أثناء تحميل بيانات اليوم ده، حاول تاني.");
-  }finally{
-    hideLoading();
-  }
-}
-
 async function openAdminGate(){
   showView("view-admin-gate");
   location.hash = "admin";
@@ -1087,13 +1239,15 @@ function openAdminTeamPicker(){
   const select = document.getElementById("adminTeamSelect");
   select.innerHTML = `<option value="">— اختر تيم —</option>` +
     `<option value="__global__">🌍 كل التيمات دفعة واحدة (كود جلسة موحّد)</option>` +
+    `<option value="__certificates__">📜 طلبات الشهادات</option>` +
     TEAMS.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
   select.value = "";
   document.getElementById("adminTeamSection").style.display = "none";
   document.getElementById("adminGlobalSection").style.display = "none";
+  document.getElementById("adminCertificatesSection").style.display = "none";
   document.getElementById("newMasterCodeInput").value = "";
   document.getElementById("changeMasterCodeMsg").className = "msg";
-  hideGlobalActivePanel();
+  stopGlobalCountdown();
   showView("view-admin-pick");
   location.hash = "admin";
 }
@@ -1102,7 +1256,8 @@ async function onAdminTeamSelectChange(){
   const val = document.getElementById("adminTeamSelect").value;
   document.getElementById("adminTeamSection").style.display = "none";
   document.getElementById("adminGlobalSection").style.display = "none";
-  hideGlobalActivePanel();
+  document.getElementById("adminCertificatesSection").style.display = "none";
+  stopGlobalCountdown();
   if(!val) return;
 
   try{
@@ -1111,6 +1266,10 @@ async function onAdminTeamSelectChange(){
       adminPickedTeamId = null;
       document.getElementById("adminGlobalSection").style.display = "block";
       await enterGlobalAdminPanel();
+    } else if(val === "__certificates__"){
+      adminPickedTeamId = null;
+      document.getElementById("adminCertificatesSection").style.display = "block";
+      await enterCertificatesAdminPanel();
     } else {
       adminPickedTeamId = val;
       document.getElementById("adminTeamSection").style.display = "block";
@@ -1152,9 +1311,6 @@ async function enterAdminPanel(teamId){
   document.getElementById("adminNewMemberInput").value = "";
   document.getElementById("adminAddMemberMsg").className = "msg";
   document.getElementById("adminEditMemberMsg").className = "msg";
-  document.getElementById("adminExportDateFilter").value = "";
-  document.getElementById("adminExportMsg").className = "msg";
-  document.getElementById("adminAttendanceTableWrap").style.display = "none";
   await ensureTeamDoc(teamId);
   await loadMembers(teamId);
   renderAdminEditMembersList();
@@ -1297,39 +1453,18 @@ async function applyGlobalSessionCode(code){
     showLoading();
     await Promise.all(TEAMS.map(t => ensureSingleTeamDoc(t.id)));
     const date = todayStr();
+    const expiresAt = Date.now() + SESSION_CODE_TTL_MS;
     const batch = db.batch();
     TEAMS.forEach(t => {
-      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date, sessionExpiresAt: 0 });
+      batch.update(db.collection("teams").doc(t.id), { sessionCode: code, sessionDate: date, sessionExpiresAt: expiresAt });
     });
     await batch.commit();
-    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) ✓`);
-    showGlobalActivePanel(code);
+    showMsg(msg, "ok", `تم تفعيل الكود "${code}" لكل التيمات (${TEAMS.length}) لمدة 10 دقايق ✓`);
+    startGlobalCountdown(expiresAt, code);
     await renderGlobalTeamsStatus();
   }catch(e){
     console.error(e);
     showMsg(msg, "err", "حصل خطأ أثناء التفعيل، حاول تاني.");
-  }finally{
-    hideLoading();
-  }
-}
-
-async function deactivateGlobalSessionCode(){
-  const msg = document.getElementById("globalSessionMsg");
-  msg.className = "msg";
-  try{
-    showLoading();
-    const batch = db.batch();
-    TEAMS.forEach(t => {
-      batch.update(db.collection("teams").doc(t.id), { sessionCode: "", sessionDate: "", sessionExpiresAt: 0 });
-    });
-    await batch.commit();
-    hideGlobalActivePanel();
-    setCodeBoxesValue("globalSessionCodeInput", "");
-    showMsg(msg, "ok", "تم إلغاء تفعيل الكود لكل التيمات ✓");
-    await renderGlobalTeamsStatus();
-  }catch(e){
-    console.error(e);
-    showMsg(msg, "err", "حصل خطأ أثناء إلغاء التفعيل، حاول تاني.");
   }finally{
     hideLoading();
   }
@@ -1344,24 +1479,45 @@ function setReadonlyCodeDisplay(wrapId, code){
   wrap.classList.toggle("expired", !code);
 }
 
-function hideGlobalActivePanel(){
-  const wrap = document.getElementById("globalActiveWrap");
+let globalCountdownTimer = null;
+function stopGlobalCountdown(){
+  if(globalCountdownTimer){ clearInterval(globalCountdownTimer); globalCountdownTimer = null; }
+  const wrap = document.getElementById("globalCountdownWrap");
   if(wrap) wrap.style.display = "none";
   setReadonlyCodeDisplay("globalActiveCodeDisplay", "");
 }
-function showGlobalActivePanel(code){
-  const wrap = document.getElementById("globalActiveWrap");
+function startGlobalCountdown(expiresAt, code){
+  stopGlobalCountdown();
+  const wrap = document.getElementById("globalCountdownWrap");
+  const label = document.getElementById("globalCountdownLabel");
   wrap.style.display = "block";
-  setReadonlyCodeDisplay("globalActiveCodeDisplay", code);
+  if(code) setReadonlyCodeDisplay("globalActiveCodeDisplay", code);
+  function tick(){
+    const remain = expiresAt - Date.now();
+    if(remain <= 0){
+      label.textContent = "00:00";
+      stopGlobalCountdown();
+      const msg = document.getElementById("globalSessionMsg");
+      if(msg) showMsg(msg, "err", "انتهت صلاحية الكود، فعّل كود جديد لو محتاج.");
+      renderGlobalTeamsStatus();
+      return;
+    }
+    const totalSec = Math.ceil(remain / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    label.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  }
+  tick();
+  globalCountdownTimer = setInterval(tick, 1000);
 }
 async function resumeGlobalCountdownIfActive(){
   try{
     const snap = await db.collection("teams").doc(TEAMS[0].id).get();
     const data = snap.exists ? snap.data() : {};
     if(isSessionCodeActive(data)){
-      showGlobalActivePanel(data.sessionCode);
+      startGlobalCountdown(data.sessionExpiresAt, data.sessionCode);
     } else {
-      hideGlobalActivePanel();
+      stopGlobalCountdown();
     }
   }catch(e){
     console.error(e);
@@ -1494,93 +1650,29 @@ function drawAttendanceChart(canvas, members){
   });
 }
 
-function getAdminExportDateFilter(){
-  return document.getElementById("adminExportDateFilter").value || null;
-}
-
-function clearAdminExportDateFilter(){
-  document.getElementById("adminExportDateFilter").value = "";
-  document.getElementById("adminExportMsg").className = "msg";
-}
-
-async function adminFetchAttendanceRows(dateFilter){
-  let q = db.collection("teams").doc(currentTeamId).collection("attendance");
-  q = dateFilter ? q.where("date","==",dateFilter) : q.orderBy("date","desc");
-  const snap = await q.get();
-  const rows = snap.docs.map(d=>{
-    const a = d.data();
-    return { date: a.date, name: a.memberName };
-  });
-  if(dateFilter){
-    rows.sort((a,b)=> (a.name||"").localeCompare(b.name||"", "ar"));
-  }else{
-    rows.sort((a,b)=>{
-      if(a.date === b.date) return (a.name||"").localeCompare(b.name||"", "ar");
-      return a.date < b.date ? 1 : -1; // من الأحدث للأقدم
-    });
-  }
-  return rows;
-}
-
-async function adminShowAttendanceTable(){
-  const msg = document.getElementById("adminExportMsg");
-  msg.className = "msg";
-  const dateFilter = getAdminExportDateFilter();
-  const wrap = document.getElementById("adminAttendanceTableWrap");
-  const body = document.getElementById("adminAttendanceTableBody");
-  const empty = document.getElementById("adminAttendanceTableEmpty");
-  const title = document.getElementById("adminAttendanceTableTitle");
-  try{
-    showLoading();
-    const rows = await adminFetchAttendanceRows(dateFilter);
-    title.textContent = dateFilter
-      ? `حضور يوم ${formatDateDisplay(dateFilter)} (${rows.length})`
-      : `كل سجل الحضور (${rows.length} سجل)`;
-    if(rows.length === 0){
-      body.innerHTML = "";
-      empty.style.display = "block";
-    }else{
-      empty.style.display = "none";
-      body.innerHTML = rows.map(r=>`<tr><td>${escapeHtml(formatDateDisplay(r.date))}</td><td>${escapeHtml(r.name)}</td></tr>`).join("");
-    }
-    wrap.style.display = "block";
-  }catch(e){
-    console.error(e);
-    showMsg(msg, "err", "حصل خطأ أثناء تحميل الجدول، حاول تاني.");
-  }finally{
-    hideLoading();
-  }
-}
-
 async function adminExportExcel(){
   const msg = document.getElementById("adminExportMsg");
   msg.className = "msg";
   if(!currentMembers.length){ showMsg(msg,"err","التيم لسه مفيش فيه أعضاء."); return; }
   const team = TEAMS.find(t=>t.id===currentTeamId);
-  const dateFilter = getAdminExportDateFilter();
   try{
     showLoading();
-    const rows = await adminFetchAttendanceRows(dateFilter);
-    const wb = XLSX.utils.book_new();
+    const attSnap = await db.collection("teams").doc(currentTeamId).collection("attendance")
+      .orderBy("date","desc").get();
+    const attendanceRows = attSnap.docs.map(d=>{
+      const a = d.data();
+      return { "التاريخ": a.date, "الاسم": a.memberName };
+    });
+    const summaryRows = [...currentMembers]
+      .sort((a,b)=>(b.attendanceCount||0)-(a.attendanceCount||0))
+      .map((m,i)=>({ "الترتيب": i+1, "الاسم": m.name, "عدد مرات الحضور": m.attendanceCount||0 }));
 
-    if(dateFilter){
-      const dayRows = rows.length
-        ? rows.map(r=>({ "التاريخ": r.date, "الاسم": r.name }))
-        : [{ "التاريخ": dateFilter, "الاسم": "" }];
-      const wsDay = XLSX.utils.json_to_sheet(dayRows);
-      XLSX.utils.book_append_sheet(wb, wsDay, "حضور اليوم");
-      XLSX.writeFile(wb, `حضور-${team.name}-${dateFilter}.xlsx`);
-    }else{
-      const attendanceRows = rows.map(r=>({ "التاريخ": r.date, "الاسم": r.name }));
-      const summaryRows = [...currentMembers]
-        .sort((a,b)=>(b.attendanceCount||0)-(a.attendanceCount||0))
-        .map((m,i)=>({ "الترتيب": i+1, "الاسم": m.name, "عدد مرات الحضور": m.attendanceCount||0 }));
-      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-      const wsLog = XLSX.utils.json_to_sheet(attendanceRows.length ? attendanceRows : [{ "التاريخ":"", "الاسم":"" }]);
-      XLSX.utils.book_append_sheet(wb, wsSummary, "ملخص الحضور");
-      XLSX.utils.book_append_sheet(wb, wsLog, "سجل الحضور بالتفصيل");
-      XLSX.writeFile(wb, `حضور-${team.name}-${todayStr()}.xlsx`);
-    }
+    const wb = XLSX.utils.book_new();
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    const wsLog = XLSX.utils.json_to_sheet(attendanceRows.length ? attendanceRows : [{ "التاريخ":"", "الاسم":"" }]);
+    XLSX.utils.book_append_sheet(wb, wsSummary, "ملخص الحضور");
+    XLSX.utils.book_append_sheet(wb, wsLog, "سجل الحضور بالتفصيل");
+    XLSX.writeFile(wb, `حضور-${team.name}-${todayStr()}.xlsx`);
     showMsg(msg, "ok", "تم تحميل ملف الإكسيل ✓");
   }catch(e){
     console.error(e);
@@ -1595,84 +1687,43 @@ async function adminExportPDF(){
   msg.className = "msg";
   if(!currentMembers.length){ showMsg(msg,"err","التيم لسه مفيش فيه أعضاء."); return; }
   const team = TEAMS.find(t=>t.id===currentTeamId);
-  const dateFilter = getAdminExportDateFilter();
-
-  const canvas = document.getElementById("pdfReportChart");
-  const bottomCard = document.getElementById("pdfReportBottomCard");
-  const avgCard = document.getElementById("pdfReportAvgCard");
-  const topLabel = document.getElementById("pdfReportTopLabel");
-
   try{
     showLoading();
+    const members = [...currentMembers].sort((a,b)=>(b.attendanceCount||0)-(a.attendanceCount||0));
+    const counts = members.map(m=>m.attendanceCount||0);
+    const maxVal = Math.max(...counts);
+    const minVal = Math.min(...counts);
+    const total = counts.reduce((s,c)=>s+c,0);
+    const avg = (total / members.length).toFixed(1);
+    const topNames = members.filter(m=>(m.attendanceCount||0)===maxVal).map(m=>m.name).join("، ");
+    const bottomNames = members.filter(m=>(m.attendanceCount||0)===minVal).map(m=>m.name).join("، ");
 
-    if(dateFilter){
-      const rows = await adminFetchAttendanceRows(dateFilter);
+    document.getElementById("pdfReportTeamName").textContent = "تقرير حضور — " + team.name;
+    document.getElementById("pdfReportDate").textContent = todayDisplay();
+    document.getElementById("pdfReportTop").textContent = `${topNames} (${maxVal})`;
+    document.getElementById("pdfReportBottom").textContent = `${bottomNames} (${minVal})`;
+    document.getElementById("pdfReportAvg").textContent = avg;
 
-      canvas.style.display = "none";
-      bottomCard.style.display = "none";
-      avgCard.style.display = "none";
-      topLabel.textContent = "عدد الحاضرين";
+    const tableEl = document.getElementById("pdfReportTable");
+    tableEl.innerHTML = `
+      <thead><tr>
+        <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">#</th>
+        <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">الاسم</th>
+        <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">عدد مرات الحضور</th>
+      </tr></thead>
+      <tbody>
+        ${members.map((m,i)=>`
+          <tr>
+            <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${i+1}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${escapeHtml(m.name)}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${m.attendanceCount||0}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    `;
 
-      document.getElementById("pdfReportTeamName").textContent = "تقرير حضور — " + team.name;
-      document.getElementById("pdfReportDate").textContent = "يوم " + formatDateDisplay(dateFilter);
-      document.getElementById("pdfReportTop").textContent = String(rows.length);
-
-      const tableEl = document.getElementById("pdfReportTable");
-      tableEl.innerHTML = `
-        <thead><tr>
-          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">#</th>
-          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">الاسم</th>
-        </tr></thead>
-        <tbody>
-          ${rows.length ? rows.map((r,i)=>`
-            <tr>
-              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${i+1}</td>
-              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${escapeHtml(r.name)}</td>
-            </tr>
-          `).join("") : `<tr><td colspan="2" style="padding:6px 8px;border-bottom:1px solid #dde2da;">محدش سجّل حضوره في اليوم ده</td></tr>`}
-        </tbody>
-      `;
-    }else{
-      canvas.style.display = "block";
-      bottomCard.style.display = "block";
-      avgCard.style.display = "block";
-      topLabel.textContent = "الأكثر حضورًا";
-
-      const members = [...currentMembers].sort((a,b)=>(b.attendanceCount||0)-(a.attendanceCount||0));
-      const counts = members.map(m=>m.attendanceCount||0);
-      const maxVal = Math.max(...counts);
-      const minVal = Math.min(...counts);
-      const total = counts.reduce((s,c)=>s+c,0);
-      const avg = (total / members.length).toFixed(1);
-      const topNames = members.filter(m=>(m.attendanceCount||0)===maxVal).map(m=>m.name).join("، ");
-      const bottomNames = members.filter(m=>(m.attendanceCount||0)===minVal).map(m=>m.name).join("، ");
-
-      document.getElementById("pdfReportTeamName").textContent = "تقرير حضور — " + team.name;
-      document.getElementById("pdfReportDate").textContent = todayDisplay();
-      document.getElementById("pdfReportTop").textContent = `${topNames} (${maxVal})`;
-      document.getElementById("pdfReportBottom").textContent = `${bottomNames} (${minVal})`;
-      document.getElementById("pdfReportAvg").textContent = avg;
-
-      const tableEl = document.getElementById("pdfReportTable");
-      tableEl.innerHTML = `
-        <thead><tr>
-          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">#</th>
-          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">الاسم</th>
-          <th style="text-align:right;padding:8px;border-bottom:2px solid #24463b;font-family:'Cairo',sans-serif;">عدد مرات الحضور</th>
-        </tr></thead>
-        <tbody>
-          ${members.map((m,i)=>`
-            <tr>
-              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${i+1}</td>
-              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${escapeHtml(m.name)}</td>
-              <td style="padding:6px 8px;border-bottom:1px solid #dde2da;">${m.attendanceCount||0}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      `;
-
-      drawAttendanceChart(canvas, members);
-    }
+    const canvas = document.getElementById("pdfReportChart");
+    drawAttendanceChart(canvas, members);
 
     if(document.fonts && document.fonts.ready) await document.fonts.ready;
 
@@ -1698,8 +1749,7 @@ async function adminExportPDF(){
       heightLeft -= pageH;
     }
 
-    const fileSuffix = dateFilter || todayStr();
-    pdf.save(`تقرير-حضور-${team.name}-${fileSuffix}.pdf`);
+    pdf.save(`تقرير-حضور-${team.name}-${todayStr()}.pdf`);
     showMsg(msg, "ok", "تم تحميل تقرير الـ PDF ✓");
   }catch(e){
     console.error(e);
@@ -1715,6 +1765,8 @@ if(location.hash.startsWith("#team/")){
   openTeam(location.hash.replace("#team/",""));
 } else if(location.hash === "#admin" || location.hash.startsWith("#admin/")){
   openAdminGate();
+} else if(location.hash === "#certificate"){
+  openCertificateView();
 }
 </script>
 </body>
