@@ -915,24 +915,24 @@ async function submitCertificateRequest(){
     const count = member.attendanceCount || 0;
     const eligible = count >= CERT_REQUIRED_ATTENDANCE;
 
-    // امنع تكرار نفس الطلب لنفس العضو في نفس البرنامج، وحدّث بياناته بدل ما يتضاعف
-    const existing = await db.collection("certificateRequests")
-      .where("memberId", "==", member.id).where("teamId", "==", team.id).limit(1).get();
-    const payload = {
-      memberId: member.id, nameAr, nameEn, teamId: team.id, teamName: team.name,
-      attendanceCount: count, eligible, updatedAt: FieldValue.serverTimestamp()
-    };
-    if(!existing.empty){
-      await existing.docs[0].ref.update(payload);
+    if(eligible){
+      // امنع تكرار نفس الطلب لنفس العضو في نفس البرنامج، وحدّث بياناته بدل ما يتضاعف
+      const existing = await db.collection("certificateRequests")
+        .where("memberId", "==", member.id).where("teamId", "==", team.id).limit(1).get();
+      const payload = {
+        memberId: member.id, nameAr, nameEn, teamId: team.id, teamName: team.name,
+        attendanceCount: count, eligible: true, updatedAt: FieldValue.serverTimestamp()
+      };
+      if(!existing.empty){
+        await existing.docs[0].ref.update(payload);
+      } else {
+        await db.collection("certificateRequests").add({ ...payload, createdAt: FieldValue.serverTimestamp() });
+      }
+      showMsg(msg, "ok", `🎉 مبروك يا ${nameAr}! حضورك كفاية (${count} مرة) للحصول على شهادة. هيتم التواصل معاك لاستلامها.`);
     } else {
-      await db.collection("certificateRequests").add({ ...payload, createdAt: FieldValue.serverTimestamp() });
-    }
-
-    if(!eligible){
+      // حضوره ناقص — ميتحفظش في طلبات الشهادات عند المسؤول خالص
       showMsg(msg, "info", `عدد مرات حضورك قليل — حضرت ${count} من أصل ${CERT_REQUIRED_ATTENDANCE} مرات مطلوبة للحصول على الشهادة.`);
       document.getElementById("certLowAttendanceWrap").style.display = "block";
-    } else {
-      showMsg(msg, "ok", `🎉 مبروك يا ${nameAr}! حضورك كفاية (${count} مرة) للحصول على شهادة. هيتم التواصل معاك لاستلامها.`);
     }
   }catch(e){
     console.error(e);
@@ -997,11 +997,19 @@ async function submitCertRecoverAttendance(){
     const count = certCurrentMember.attendanceCount || 0;
     const eligible = count >= CERT_REQUIRED_ATTENDANCE;
 
-    // حدّث طلب الشهادة المحفوظ لو الطالب كان عمل طلب قبل كده
+    // حدّث طلب الشهادة المحفوظ لو موجود، ولو بقى مؤهّل دلوقتي وملوش طلب محفوظ، احفظه
     const reqSnap = await db.collection("certificateRequests")
       .where("memberId", "==", certCurrentMember.id).where("teamId", "==", certCurrentTeam.id).limit(1).get();
     if(!reqSnap.empty){
       await reqSnap.docs[0].ref.update({ attendanceCount: count, eligible, updatedAt: FieldValue.serverTimestamp() });
+    } else if(eligible){
+      const nameAr = document.getElementById("certNameAr").value.trim() || certCurrentMember.name;
+      const nameEn = document.getElementById("certNameEn").value.trim();
+      await db.collection("certificateRequests").add({
+        memberId: certCurrentMember.id, nameAr, nameEn, teamId: certCurrentTeam.id, teamName: certCurrentTeam.name,
+        attendanceCount: count, eligible: true,
+        createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
+      });
     }
 
     showMsg(msg, "ok", `تم تسجيل حضورك في ${date} ✓ — عدد مرات حضورك بقى ${count}.`);
