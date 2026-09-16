@@ -80,6 +80,12 @@
   .team-card .idx{font-size:10.5px;color:var(--ink-soft);font-family:'Cairo';font-weight:700;}
   .team-card .name{font-family:'Cairo';font-weight:800;font-size:15px;margin:4px 0 1px;}
   .team-card .sub{font-size:11px;color:var(--ink-soft);}
+  .team-card .no-attend-badge{
+    display:none;margin-top:8px;font-size:10.5px;font-weight:700;
+    background:#fdeeee;color:#b5443a;border:1px solid #f3cfcb;
+    border-radius:999px;padding:3px 9px;width:fit-content;
+  }
+  .team-card.no-attend-yet .no-attend-badge{display:inline-block;}
 
   @media (max-width:480px){
     main{padding:18px 14px 60px;}
@@ -1384,6 +1390,7 @@ function goHome(){
   stopRecoverCountdown();
   showView("view-home");
   location.hash = "";
+  refreshHomeAttendanceBadges();
 }
 
 function renderHome(){
@@ -1392,12 +1399,31 @@ function renderHome(){
   TEAMS.forEach((t, i) => {
     const el = document.createElement("div");
     el.className = "team-card";
+    el.dataset.teamId = t.id;
     el.onclick = () => openTeam(t.id);
     el.innerHTML = `<div class="idx">فريق ${String(i+1).padStart(2,"0")}</div>
                      <div class="name">${t.name}</div>
-                     <div class="sub">تسجيل حضور وترتيب الأكثر حضورًا</div>`;
+                     <div class="sub">تسجيل حضور وترتيب الأكثر حضورًا</div>
+                     <div class="no-attend-badge">⚠️ لسه محدش حضر النهاردة</div>`;
     grid.appendChild(el);
   });
+  refreshHomeAttendanceBadges();
+}
+
+// بيحط علامة "لسه محدش حضر النهاردة" على أي تيم لسه محدش سجّل حضوره فيه اليوم، وبتختفي أول ما حد يسجل
+async function refreshHomeAttendanceBadges(){
+  const today = todayStr();
+  await Promise.all(TEAMS.map(async (t) => {
+    try{
+      const snap = await db.collection("teams").doc(t.id).collection("attendance")
+        .where("date", "==", today).limit(1).get();
+      const card = document.querySelector(`.team-card[data-team-id="${t.id}"]`);
+      if(!card) return;
+      card.classList.toggle("no-attend-yet", snap.empty);
+    }catch(e){
+      console.error("refreshHomeAttendanceBadges failed for", t.id, e);
+    }
+  }));
 }
 
 async function openTeam(teamId){
