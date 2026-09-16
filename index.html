@@ -250,6 +250,8 @@
 
 <div class="loading-overlay" id="globalLoadingOverlay"><div class="spinner"></div></div>
 
+<canvas id="certGenCanvas" style="display:none;"></canvas>
+
 <div id="pdfReportRoot" style="position:fixed;left:-99999px;top:0;width:800px;background:#fff;padding:32px;font-family:'IBM Plex Sans Arabic',sans-serif;direction:rtl;color:#20281f;">
   <div style="text-align:center;margin-bottom:22px;">
     <div style="font-size:20px;font-weight:800;font-family:'Cairo',sans-serif;" id="pdfReportTeamName"></div>
@@ -577,6 +579,55 @@
         <button class="primary" onclick="adminExportCertificatesExcel()">📊 تحميل Excel بالأسماء</button>
         <div class="msg" id="certExportMsg"></div>
       </div>
+
+      <div class="card">
+        <h3>🎨 تصميم الشهادة وإرسال تليجرام تلقائي</h3>
+        <div class="hint" style="margin:0 0 10px;">ارفع تصميم الشهادة (صورة فاضية بدون اسم)، وحدد مكان ما يتكتب فيه الاسم بالإنجليزي عليها. أول ما حد يبقى مؤهل للشهادة، هيتكتب اسمه على التصميم تلقائي ويتبعت على تليجرام على طول.</div>
+
+        <label>صورة تصميم الشهادة</label>
+        <input type="file" id="certTemplateFileInput" accept="image/*">
+        <button class="ghost" style="margin-top:10px;" onclick="uploadCertTemplate()">رفع الصورة</button>
+        <div class="msg" id="certTemplateUploadMsg"></div>
+
+        <div id="certTemplatePreviewWrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1.5px dashed var(--line);">
+          <div class="hint" style="margin:0 0 10px;">حدد مكان الاسم بالنسبة المئوية من الصورة (X من الشمال، Y من فوق)، وشكل الخط، وادوس معاينة عشان تشوف شكله.</div>
+          <div class="row">
+            <div>
+              <label>الموضع الأفقي X (%)</label>
+              <input type="text" inputmode="decimal" id="certPosXInput" value="50">
+            </div>
+            <div>
+              <label>الموضع الرأسي Y (%)</label>
+              <input type="text" inputmode="decimal" id="certPosYInput" value="55">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>حجم الخط (بكسل)</label>
+              <input type="text" inputmode="numeric" id="certFontSizeInput" value="48">
+            </div>
+            <div>
+              <label>لون الخط</label>
+              <input type="text" id="certFontColorInput" value="#20281f">
+            </div>
+          </div>
+          <button class="ghost" onclick="previewCertPlacement()">👁️ معاينة الاسم على التصميم</button>
+          <div style="margin-top:12px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm);">
+            <canvas id="certAdminPreviewCanvas" style="max-width:100%;display:block;"></canvas>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1.5px dashed var(--line);">
+          <label>توكن بوت تليجرام (Bot Token)</label>
+          <input type="text" id="telegramTokenInput" placeholder="من BotFather، مثال: 123456789:AAExxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+          <label>آيدي الشات أو القناة (Chat ID)</label>
+          <input type="text" id="telegramChatIdInput" placeholder="مثال: -1001234567890 أو @channelusername">
+          <div class="hint" style="margin:8px 0 0;">اعمل بوت من BotFather وضيفه للجروب/القناة اللي عايز الشهادات توصله، وحط التوكن والـ Chat ID هنا.</div>
+        </div>
+
+        <button class="primary" style="margin-top:16px;" onclick="saveCertificateDesignConfig()">حفظ إعدادات الشهادة</button>
+        <div class="msg" id="certDesignConfigMsg"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -666,6 +717,15 @@ let MASTER_ADMIN_CODE = DEFAULT_ADMIN_CODE; // كود دخول المسؤول �
 const LOCK_KEY = "attendanceDeviceLock";
 const LOCK_MS = 10 * 60 * 60 * 1000;
 
+// إعدادات تصميم الشهادة وتليجرام — بتتحمّل من نفس مستند _appconfig
+let CERT_TEMPLATE_URL = "";
+let CERT_POS_X_PCT = 50;
+let CERT_POS_Y_PCT = 55;
+let CERT_FONT_SIZE = 48;
+let CERT_FONT_COLOR = "#20281f";
+let TELEGRAM_BOT_TOKEN = "8455420518:AAEiTzPKDwiTShu6jmo5SZEgpFHKCsRkqUs";
+let TELEGRAM_CHAT_ID = "5903280694";
+
 let currentTeamId = null;
 let currentTeamData = null;
 let currentMembers = [];
@@ -682,7 +742,15 @@ async function ensureMasterConfig(){
       await ref.set({ masterAdminCode: DEFAULT_ADMIN_CODE });
       MASTER_ADMIN_CODE = DEFAULT_ADMIN_CODE;
     } else {
-      MASTER_ADMIN_CODE = snap.data().masterAdminCode || DEFAULT_ADMIN_CODE;
+      const data = snap.data();
+      MASTER_ADMIN_CODE = data.masterAdminCode || DEFAULT_ADMIN_CODE;
+      CERT_TEMPLATE_URL = data.certTemplateUrl || "";
+      CERT_POS_X_PCT = typeof data.certNameXPct === "number" ? data.certNameXPct : 50;
+      CERT_POS_Y_PCT = typeof data.certNameYPct === "number" ? data.certNameYPct : 55;
+      CERT_FONT_SIZE = typeof data.certFontSize === "number" ? data.certFontSize : 48;
+      CERT_FONT_COLOR = data.certFontColor || "#20281f";
+      TELEGRAM_BOT_TOKEN = data.telegramBotToken || "8455420518:AAEiTzPKDwiTShu6jmo5SZEgpFHKCsRkqUs";
+      TELEGRAM_CHAT_ID = data.telegramChatId || "5903280694";
     }
   }catch(e){
     console.error("ensureMasterConfig failed", e);
@@ -912,22 +980,14 @@ async function submitCertificateRequest(){
 
   try{
     showLoading();
+    await ensureMasterConfig(); // نجيب أحدث إعدادات تصميم/تليجرام قبل ما نقرر نبعت ولا لأ
     const count = member.attendanceCount || 0;
     const eligible = count >= CERT_REQUIRED_ATTENDANCE;
 
     if(eligible){
-      // امنع تكرار نفس الطلب لنفس العضو في نفس البرنامج، وحدّث بياناته بدل ما يتضاعف
-      const existing = await db.collection("certificateRequests")
-        .where("memberId", "==", member.id).where("teamId", "==", team.id).limit(1).get();
-      const payload = {
-        memberId: member.id, nameAr, nameEn, teamId: team.id, teamName: team.name,
-        attendanceCount: count, eligible: true, updatedAt: FieldValue.serverTimestamp()
-      };
-      if(!existing.empty){
-        await existing.docs[0].ref.update(payload);
-      } else {
-        await db.collection("certificateRequests").add({ ...payload, createdAt: FieldValue.serverTimestamp() });
-      }
+      await upsertCertificateRequestAndNotify({
+        memberId: member.id, nameAr, nameEn, teamId: team.id, teamName: team.name, attendanceCount: count
+      });
       showMsg(msg, "ok", `🎉 مبروك يا ${nameAr}! حضورك كفاية (${count} مرة) للحصول على شهادة. هيتم التواصل معاك لاستلامها.`);
     } else {
       // حضوره ناقص — ميتحفظش في طلبات الشهادات عند المسؤول خالص
@@ -997,18 +1057,14 @@ async function submitCertRecoverAttendance(){
     const count = certCurrentMember.attendanceCount || 0;
     const eligible = count >= CERT_REQUIRED_ATTENDANCE;
 
-    // حدّث طلب الشهادة المحفوظ لو موجود، ولو بقى مؤهّل دلوقتي وملوش طلب محفوظ، احفظه
-    const reqSnap = await db.collection("certificateRequests")
-      .where("memberId", "==", certCurrentMember.id).where("teamId", "==", certCurrentTeam.id).limit(1).get();
-    if(!reqSnap.empty){
-      await reqSnap.docs[0].ref.update({ attendanceCount: count, eligible, updatedAt: FieldValue.serverTimestamp() });
-    } else if(eligible){
+    // حدّث طلب الشهادة المحفوظ لو موجود، ولو بقى مؤهّل دلوقتي وملوش طلب محفوظ، احفظه وابعته على تليجرام
+    if(eligible){
+      await ensureMasterConfig();
       const nameAr = document.getElementById("certNameAr").value.trim() || certCurrentMember.name;
       const nameEn = document.getElementById("certNameEn").value.trim();
-      await db.collection("certificateRequests").add({
-        memberId: certCurrentMember.id, nameAr, nameEn, teamId: certCurrentTeam.id, teamName: certCurrentTeam.name,
-        attendanceCount: count, eligible: true,
-        createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
+      await upsertCertificateRequestAndNotify({
+        memberId: certCurrentMember.id, nameAr, nameEn,
+        teamId: certCurrentTeam.id, teamName: certCurrentTeam.name, attendanceCount: count
       });
     }
 
@@ -1061,9 +1117,216 @@ let certRequestsCache = [];
 async function enterCertificatesAdminPanel(){
   document.getElementById("certTodayLabel").textContent = todayDisplay();
   document.getElementById("certExportMsg").className = "msg";
+
+  await ensureMasterConfig(); // نجيب أحدث نسخة من إعدادات التصميم والتليجرام
+  document.getElementById("certPosXInput").value = CERT_POS_X_PCT;
+  document.getElementById("certPosYInput").value = CERT_POS_Y_PCT;
+  document.getElementById("certFontSizeInput").value = CERT_FONT_SIZE;
+  document.getElementById("certFontColorInput").value = CERT_FONT_COLOR;
+  document.getElementById("telegramTokenInput").value = TELEGRAM_BOT_TOKEN;
+  document.getElementById("telegramChatIdInput").value = TELEGRAM_CHAT_ID;
+  document.getElementById("certTemplateUploadMsg").className = "msg";
+  document.getElementById("certDesignConfigMsg").className = "msg";
+  if(CERT_TEMPLATE_URL){
+    document.getElementById("certTemplatePreviewWrap").style.display = "block";
+    await previewCertPlacement();
+  } else {
+    document.getElementById("certTemplatePreviewWrap").style.display = "none";
+  }
+
   const snap = await db.collection("certificateRequests").orderBy("createdAt", "desc").get();
   certRequestsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderCertificateRequests();
+}
+
+/* ---------- رفع تصميم الشهادة (بيتخزن كصورة مضغوطة base64 عشان يبقى موافق لحجم مستند فايرستور) ---------- */
+function resizeImageToDataUrl(file, maxDim, quality){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          const scale = maxDim / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadCertTemplate(){
+  const msg = document.getElementById("certTemplateUploadMsg");
+  msg.className = "msg";
+  const fileInput = document.getElementById("certTemplateFileInput");
+  const file = fileInput.files[0];
+  if(!file){ showMsg(msg, "err", "اختار صورة الأول."); return; }
+
+  try{
+    showLoading();
+    const dataUrl = await resizeImageToDataUrl(file, 1400, 0.82);
+    await db.collection("teams").doc("_appconfig").set({ certTemplateUrl: dataUrl }, { merge: true });
+    CERT_TEMPLATE_URL = dataUrl;
+    showMsg(msg, "ok", "تم رفع التصميم بنجاح ✓");
+    document.getElementById("certTemplatePreviewWrap").style.display = "block";
+    await previewCertPlacement();
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء رفع الصورة — جرب صورة أصغر شوية.");
+  }finally{
+    hideLoading();
+  }
+}
+
+function loadImageEl(src){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function previewCertPlacement(){
+  if(!CERT_TEMPLATE_URL) return;
+  try{
+    const img = await loadImageEl(CERT_TEMPLATE_URL);
+    const canvas = document.getElementById("certAdminPreviewCanvas");
+    const maxW = 700;
+    const scale = img.width > maxW ? maxW / img.width : 1;
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const xPct = parseFloat(document.getElementById("certPosXInput").value) || 50;
+    const yPct = parseFloat(document.getElementById("certPosYInput").value) || 50;
+    const fontSize = (parseFloat(document.getElementById("certFontSizeInput").value) || 48) * scale;
+    const color = document.getElementById("certFontColorInput").value.trim() || "#20281f";
+
+    const x = (xPct / 100) * canvas.width;
+    const y = (yPct / 100) * canvas.height;
+
+    ctx.font = `700 ${fontSize}px 'Cairo', sans-serif`;
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Ahmed Mohamed", x, y);
+  }catch(e){
+    console.error(e);
+  }
+}
+
+async function saveCertificateDesignConfig(){
+  const msg = document.getElementById("certDesignConfigMsg");
+  msg.className = "msg";
+  const xPct = parseFloat(document.getElementById("certPosXInput").value);
+  const yPct = parseFloat(document.getElementById("certPosYInput").value);
+  const fontSize = parseFloat(document.getElementById("certFontSizeInput").value);
+  const color = document.getElementById("certFontColorInput").value.trim() || "#20281f";
+  const botToken = document.getElementById("telegramTokenInput").value.trim();
+  const chatId = document.getElementById("telegramChatIdInput").value.trim();
+
+  try{
+    showLoading();
+    await db.collection("teams").doc("_appconfig").set({
+      certNameXPct: isNaN(xPct) ? 50 : xPct,
+      certNameYPct: isNaN(yPct) ? 55 : yPct,
+      certFontSize: isNaN(fontSize) ? 48 : fontSize,
+      certFontColor: color,
+      telegramBotToken: botToken,
+      telegramChatId: chatId
+    }, { merge: true });
+    CERT_POS_X_PCT = isNaN(xPct) ? 50 : xPct;
+    CERT_POS_Y_PCT = isNaN(yPct) ? 55 : yPct;
+    CERT_FONT_SIZE = isNaN(fontSize) ? 48 : fontSize;
+    CERT_FONT_COLOR = color;
+    TELEGRAM_BOT_TOKEN = botToken;
+    TELEGRAM_CHAT_ID = chatId;
+    showMsg(msg, "ok", "تم حفظ الإعدادات بنجاح ✓");
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء الحفظ، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
+
+/* ---------- توليد صورة الشهادة بالاسم، وإرسالها على تليجرام ---------- */
+async function generateCertificateBlob(nameEn){
+  if(!CERT_TEMPLATE_URL) return null;
+  const img = await loadImageEl(CERT_TEMPLATE_URL);
+  const canvas = document.getElementById("certGenCanvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const x = (CERT_POS_X_PCT / 100) * canvas.width;
+  const y = (CERT_POS_Y_PCT / 100) * canvas.height;
+  ctx.font = `700 ${CERT_FONT_SIZE}px 'Cairo', sans-serif`;
+  ctx.fillStyle = CERT_FONT_COLOR;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(nameEn, x, y);
+
+  return new Promise(resolve => canvas.toBlob(blob => resolve(blob), "image/png"));
+}
+
+async function sendCertificateToTelegram(nameEn, teamName){
+  try{
+    if(!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !CERT_TEMPLATE_URL) return false;
+    const blob = await generateCertificateBlob(nameEn);
+    if(!blob) return false;
+    const formData = new FormData();
+    formData.append("chat_id", TELEGRAM_CHAT_ID);
+    formData.append("caption", `🎓 شهادة جديدة\nالاسم: ${nameEn}\nالبرنامج: ${teamName}`);
+    formData.append("photo", blob, "certificate.png");
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+      method: "POST",
+      body: formData
+    });
+    return res.ok;
+  }catch(e){
+    console.error("sendCertificateToTelegram failed", e);
+    return false;
+  }
+}
+
+/* بيحفظ/يحدّث طلب الشهادة، وبيبعت على تليجرام مرة واحدة بس لكل شخص */
+async function upsertCertificateRequestAndNotify({ memberId, nameAr, nameEn, teamId, teamName, attendanceCount }){
+  const existing = await db.collection("certificateRequests")
+    .where("memberId", "==", memberId).where("teamId", "==", teamId).limit(1).get();
+  const alreadySent = !existing.empty && !!existing.docs[0].data().telegramSent;
+  const payload = {
+    memberId, nameAr, nameEn, teamId, teamName,
+    attendanceCount, eligible: true, updatedAt: FieldValue.serverTimestamp()
+  };
+  let docRef;
+  if(!existing.empty){
+    docRef = existing.docs[0].ref;
+    await docRef.update(payload);
+  } else {
+    docRef = await db.collection("certificateRequests").add({
+      ...payload, createdAt: FieldValue.serverTimestamp(), telegramSent: false
+    });
+  }
+  if(!alreadySent){
+    const ok = await sendCertificateToTelegram(nameEn, teamName);
+    if(ok) await docRef.update({ telegramSent: true });
+  }
 }
 
 function renderCertificateRequests(){
@@ -2051,6 +2314,7 @@ async function adminExportPDF(){
 
 renderHome();
 initCodeBoxes();
+ensureMasterConfig();
 if(location.hash.startsWith("#team/")){
   openTeam(location.hash.replace("#team/",""));
 } else if(location.hash === "#admin" || location.hash.startsWith("#admin/")){
