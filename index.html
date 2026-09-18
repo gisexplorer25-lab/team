@@ -640,8 +640,11 @@
           <label>توكن بوت تليجرام (Bot Token)</label>
           <input type="text" id="telegramTokenInput" placeholder="من BotFather، مثال: 123456789:AAExxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
           <label>آيدي الشات أو القناة (Chat ID)</label>
-          <input type="text" id="telegramChatIdInput" placeholder="مثال: -1001234567890 أو @channelusername">
-          <div class="hint" style="margin:8px 0 0;">اعمل بوت من BotFather وضيفه للجروب/القناة اللي عايز الشهادات توصله، وحط التوكن والـ Chat ID هنا.</div>
+          <input type="text" id="telegramChatIdInput" placeholder="مثال: 5903280694, -1001234567890">
+          <div class="hint" style="margin:8px 0 0;">
+            لو عايز الشهادة توصل لأكتر من شات في نفس الوقت (مثلاً شاتك الشخصي مع البوت + جروب معيّن)، اكتب كل الـ Chat IDs مفصولة بفاصلة زي المثال فوق، وهتتبعت لكل واحد فيهم.<br><br>
+            ملحوظة مهمة: أي ID رقمي عادي (زي 5903280694) ده شاتك الشخصي إنت مع البوت — يعني الرسايل هتيجي كأنها رسالة عادية من البوت لك. لو عايزها تروح لجروب أو قناة بدل كده، لازم تضيف البوت للجروب/القناة الأول، وتاخد الـ Chat ID بتاعه (غالبًا بيبدأ بـ <code>-100</code>) وتحطه هنا بدل الرقم الشخصي أو معاه.
+          </div>
         </div>
 
         <button class="primary" style="margin-top:16px;" onclick="saveCertificateDesignConfig()">حفظ إعدادات الشهادة</button>
@@ -1189,17 +1192,18 @@ function resizeImageToDataUrl(file, maxDim, quality){
   });
 }
 
-// مستندات فايرستور محدودة بـ 1 ميجا تقريبًا، فبنضغط الصورة تدريجيًا لحد ما تدخل في المساحة دي
-const CERT_TEMPLATE_MAX_BASE64_LEN = 650000;
+// مستند فايرستور محدود بـ 1 ميجا تقريبًا لكل المستند، فبنضغط الصورة تدريجيًا لحد ما تدخل في أقصى مساحة ممكنة
+// بنبدأ بجودة عالية جدًا وبنقلل بس لو الصورة فعلاً كبيرة، عشان أعلى جودة ممكنة تنفع للطباعة
+const CERT_TEMPLATE_MAX_BASE64_LEN = 950000;
 async function compressImageForCertTemplate(file){
-  let maxDim = 1400;
-  let quality = 0.8;
+  let maxDim = 2200;
+  let quality = 0.93;
   let dataUrl = await resizeImageToDataUrl(file, maxDim, quality);
 
   let attempts = 0;
-  while(dataUrl.length > CERT_TEMPLATE_MAX_BASE64_LEN && attempts < 8){
-    quality = Math.max(0.35, quality - 0.1);
-    maxDim = Math.max(500, Math.round(maxDim * 0.85));
+  while(dataUrl.length > CERT_TEMPLATE_MAX_BASE64_LEN && attempts < 10){
+    quality = Math.max(0.5, quality - 0.06);
+    maxDim = Math.max(900, Math.round(maxDim * 0.9));
     dataUrl = await resizeImageToDataUrl(file, maxDim, quality);
     attempts++;
   }
@@ -1410,20 +1414,44 @@ async function generateCertificateBlob(nameEn){
   return new Promise(resolve => canvas.toBlob(blob => resolve(blob), "image/png"));
 }
 
+// بتفصل قيمة "آيدي الشات" على فاصلة أو سطر جديد، عشان تدعم أكتر من شات في نفس الوقت
+function parseTelegramChatIds(raw){
+  return String(raw || "")
+    .split(/[,\n]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
 async function sendCertificateToTelegram(nameEn, teamName){
   try{
     if(!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !CERT_TEMPLATE_URL) return false;
+    const chatIds = parseTelegramChatIds(TELEGRAM_CHAT_ID);
+    if(!chatIds.length) return false;
+
     const blob = await generateCertificateBlob(nameEn);
     if(!blob) return false;
-    const formData = new FormData();
-    formData.append("chat_id", TELEGRAM_CHAT_ID);
-    formData.append("caption", `🎓 شهادة جديدة\nالاسم: ${nameEn}\nالبرنامج: ${teamName}`);
-    formData.append("photo", blob, "certificate.png");
-    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-      method: "POST",
-      body: formData
-    });
-    return res.ok;
+
+    // بنبعتها كـ "ملف" (document) مش "صورة" (photo) عشان تليجرام ميعملش ضغط/إعادة تحجيم للصورة —
+    // وده بيحافظ على جودتها زي ما هي بالظبط، مناسب للطباعة بعد كده.
+    const results = await Promise.all(chatIds.map(async (chatId) => {
+      try{
+        const formData = new FormData();
+        formData.append("chat_id", chatId);
+        formData.append("caption", `🎓 شهادة جديدة\nالاسم: ${nameEn}\nالبرنامج: ${teamName}`);
+        formData.append("document", blob, "certificate.png");
+        const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
+          method: "POST",
+          body: formData
+        });
+        return res.ok;
+      }catch(err){
+        console.error("sendCertificateToTelegram: failed for chat", chatId, err);
+        return false;
+      }
+    }));
+
+    // بنعتبرها اتبعتت بنجاح لو وصلت لكل الشاتات المحددة كلها
+    return results.every(Boolean);
   }catch(e){
     console.error("sendCertificateToTelegram failed", e);
     return false;
