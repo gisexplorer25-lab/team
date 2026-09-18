@@ -626,8 +626,9 @@
           <input type="text" id="certFontFamilyInput" value="Cairo" placeholder="مثال: Cairo، أو Amiri، أو Great Vibes، أو Arial">
           <div class="hint" style="margin:6px 0 0;">اكتب اسم أي فونت من <a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a> بالظبط زي ما هو مكتوب هناك، وهيتحمّل تلقائي. أو اكتب اسم فونت عادي متثبت على أي جهاز زي Arial أو Times New Roman.</div>
           <button class="ghost" style="margin-top:12px;" onclick="previewCertPlacement()">👁️ معاينة الاسم على التصميم</button>
-          <div style="margin-top:12px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm);">
-            <canvas id="certAdminPreviewCanvas" style="max-width:100%;display:block;"></canvas>
+          <div class="hint" style="margin:10px 0 6px;">📍 أو أسهل، دوس بس على المكان اللي عايز الاسم يتكتب فيه في الصورة تحت، وهيحدد X وY لوحده ويحدّث المعاينة.</div>
+          <div style="margin-top:6px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm);">
+            <canvas id="certAdminPreviewCanvas" style="max-width:100%;display:block;cursor:crosshair;" onclick="onCertPreviewCanvasClick(event)"></canvas>
           </div>
         </div>
 
@@ -1293,6 +1294,20 @@ async function previewCertPlacement(){
   }catch(e){
     console.error(e);
   }
+}
+
+// دوس على أي مكان في المعاينة، وهو بيحوّل مكان الدوسة لنسبة مئوية X%,Y% وبيحدّث الخانات والمعاينة لوحده
+function onCertPreviewCanvasClick(evt){
+  const canvas = document.getElementById("certAdminPreviewCanvas");
+  if(!canvas.width || !canvas.height) return;
+  const rect = canvas.getBoundingClientRect();
+  const clickX = evt.clientX - rect.left;
+  const clickY = evt.clientY - rect.top;
+  const xPct = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+  const yPct = Math.max(0, Math.min(100, (clickY / rect.height) * 100));
+  document.getElementById("certPosXInput").value = xPct.toFixed(1);
+  document.getElementById("certPosYInput").value = yPct.toFixed(1);
+  previewCertPlacement();
 }
 
 async function saveCertificateDesignConfig(){
