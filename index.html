@@ -580,11 +580,14 @@
         <h3>كل طلبات الشهادات (<span id="certRequestsCount">0</span>)</h3>
         <div class="hint" style="margin:0 0 10px;">القائمة دي فيها كل اللي طلبوا شهادة، سواء كان حضورهم كفاية أو لسه ناقص. لو حد طلب أكتر من مرة لنفس البرنامج، بيتحدّث نفس الصف بدل ما يتكرر.</div>
         <table>
-          <thead><tr><th>الاسم بالعربي</th><th>الاسم بالإنجليزي</th><th>البرنامج</th><th>الحضور</th><th>الحالة</th></tr></thead>
+          <thead><tr><th>الاسم بالعربي</th><th>الاسم بالإنجليزي</th><th>البرنامج</th><th>الحضور</th><th>الحالة</th><th>تليجرام</th></tr></thead>
           <tbody id="certRequestsBody"></tbody>
         </table>
         <div class="empty" id="certRequestsEmpty" style="display:none;">لسه مفيش طلبات شهادات.</div>
-        <button class="primary" onclick="adminExportCertificatesExcel()">📊 تحميل Excel بالأسماء</button>
+        <div class="row">
+          <button class="primary" style="flex:0 0 auto;" onclick="adminExportCertificatesExcel()">📊 تحميل Excel بالأسماء</button>
+          <button class="ghost" style="flex:0 0 auto;" onclick="resendAllPendingCertificates()">📤 ابعت كل اللي لسه متبعتش على تليجرام</button>
+        </div>
         <div class="msg" id="certExportMsg"></div>
       </div>
 
@@ -1173,6 +1176,27 @@ function resizeImageToDataUrl(file, maxDim, quality){
   });
 }
 
+// مستندات فايرستور محدودة بـ 1 ميجا تقريبًا، فبنضغط الصورة تدريجيًا لحد ما تدخل في المساحة دي
+const CERT_TEMPLATE_MAX_BASE64_LEN = 650000;
+async function compressImageForCertTemplate(file){
+  let maxDim = 1400;
+  let quality = 0.8;
+  let dataUrl = await resizeImageToDataUrl(file, maxDim, quality);
+
+  let attempts = 0;
+  while(dataUrl.length > CERT_TEMPLATE_MAX_BASE64_LEN && attempts < 8){
+    quality = Math.max(0.35, quality - 0.1);
+    maxDim = Math.max(500, Math.round(maxDim * 0.85));
+    dataUrl = await resizeImageToDataUrl(file, maxDim, quality);
+    attempts++;
+  }
+
+  if(dataUrl.length > CERT_TEMPLATE_MAX_BASE64_LEN){
+    throw new Error("الصورة كبيرة جدًا حتى بعد الضغط");
+  }
+  return dataUrl;
+}
+
 async function uploadCertTemplate(){
   const msg = document.getElementById("certTemplateUploadMsg");
   msg.className = "msg";
@@ -1182,7 +1206,7 @@ async function uploadCertTemplate(){
 
   try{
     showLoading();
-    const dataUrl = await resizeImageToDataUrl(file, 1400, 0.82);
+    const dataUrl = await compressImageForCertTemplate(file);
     await db.collection("teams").doc("_appconfig").set({ certTemplateUrl: dataUrl }, { merge: true });
     CERT_TEMPLATE_URL = dataUrl;
     showMsg(msg, "ok", "تم رفع التصميم بنجاح ✓");
@@ -1190,7 +1214,7 @@ async function uploadCertTemplate(){
     await previewCertPlacement();
   }catch(e){
     console.error(e);
-    showMsg(msg, "err", "حصل خطأ أثناء رفع الصورة — جرب صورة أصغر شوية.");
+    showMsg(msg, "err", "الصورة كبيرة جدًا حتى بعد الضغط — جرب صورة أبسط أو بدقة أقل من كانفا.");
   }finally{
     hideLoading();
   }
@@ -1356,8 +1380,73 @@ function renderCertificateRequests(){
       <td>${r.eligible
         ? '<span style="color:var(--green-deep);font-weight:800;">جاهز ✓</span>'
         : '<span style="color:var(--red);font-weight:800;">حضور ناقص</span>'}</td>
+      <td>${r.telegramSent
+        ? '<span style="color:var(--green-deep);font-weight:700;">اتبعتت ✓</span>'
+        : `<button class="ghost" style="padding:6px 10px;font-size:12px;" onclick="resendCertificateForRequest('${r.id}')">📤 ابعت</button>`}</td>
     </tr>
   `).join("");
+}
+
+async function resendCertificateForRequest(requestId){
+  const msg = document.getElementById("certExportMsg");
+  msg.className = "msg";
+  const req = certRequestsCache.find(r => r.id === requestId);
+  if(!req) return;
+
+  try{
+    showLoading();
+    await ensureMasterConfig();
+    if(!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !CERT_TEMPLATE_URL){
+      showMsg(msg, "err", "لازم ترفع تصميم الشهادة وتحفظ بيانات بوت تليجرام الأول.");
+      return;
+    }
+    const ok = await sendCertificateToTelegram(req.nameEn, req.teamName);
+    if(ok){
+      await db.collection("certificateRequests").doc(requestId).update({ telegramSent: true });
+      req.telegramSent = true;
+      renderCertificateRequests();
+      showMsg(msg, "ok", `تم إرسال شهادة ${req.nameEn} ✓`);
+    } else {
+      showMsg(msg, "err", "حصل خطأ أثناء الإرسال، تأكد من بيانات البوت وحاول تاني.");
+    }
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء الإرسال، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
+}
+
+async function resendAllPendingCertificates(){
+  const msg = document.getElementById("certExportMsg");
+  msg.className = "msg";
+  const pending = certRequestsCache.filter(r => r.eligible && !r.telegramSent);
+  if(!pending.length){ showMsg(msg, "err", "مفيش طلبات لسه محتاجة إرسال."); return; }
+
+  try{
+    showLoading();
+    await ensureMasterConfig();
+    if(!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !CERT_TEMPLATE_URL){
+      showMsg(msg, "err", "لازم ترفع تصميم الشهادة وتحفظ بيانات بوت تليجرام الأول.");
+      return;
+    }
+    let sentCount = 0;
+    for(const req of pending){
+      const ok = await sendCertificateToTelegram(req.nameEn, req.teamName);
+      if(ok){
+        await db.collection("certificateRequests").doc(req.id).update({ telegramSent: true });
+        req.telegramSent = true;
+        sentCount++;
+      }
+    }
+    renderCertificateRequests();
+    showMsg(msg, "ok", `تم إرسال ${sentCount} من ${pending.length} شهادة ✓`);
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء الإرسال الجماعي، حاول تاني.");
+  }finally{
+    hideLoading();
+  }
 }
 
 async function adminExportCertificatesExcel(){
