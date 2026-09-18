@@ -579,10 +579,12 @@
       <div class="card">
         <h3>كل طلبات الشهادات (<span id="certRequestsCount">0</span>)</h3>
         <div class="hint" style="margin:0 0 10px;">القائمة دي فيها كل اللي طلبوا شهادة، سواء كان حضورهم كفاية أو لسه ناقص. لو حد طلب أكتر من مرة لنفس البرنامج، بيتحدّث نفس الصف بدل ما يتكرر.</div>
-        <table>
-          <thead><tr><th>الاسم بالعربي</th><th>الاسم بالإنجليزي</th><th>البرنامج</th><th>الحضور</th><th>الحالة</th><th>معاينة</th><th>تليجرام</th></tr></thead>
-          <tbody id="certRequestsBody"></tbody>
-        </table>
+        <div style="overflow-x:auto;">
+          <table style="min-width:820px;">
+            <thead><tr><th>الاسم بالعربي</th><th>الاسم بالإنجليزي</th><th>البرنامج</th><th>الحضور</th><th>الحالة</th><th>معاينة</th><th>تليجرام</th></tr></thead>
+            <tbody id="certRequestsBody"></tbody>
+          </table>
+        </div>
         <div class="empty" id="certRequestsEmpty" style="display:none;">لسه مفيش طلبات شهادات.</div>
         <div class="row">
           <button class="primary" style="flex:0 0 auto;" onclick="adminExportCertificatesExcel()">📊 تحميل Excel بالأسماء</button>
@@ -1482,6 +1484,40 @@ async function upsertCertificateRequestAndNotify({ memberId, nameAr, nameEn, tea
   }
 }
 
+const CERT_RESEND_COOLDOWN_MS = 50 * 1000; // بعد كل إرسال، لازم تستنى 50 ثانية قبل ما تبعت نفس الاسم تاني
+let certSendCooldowns = {}; // requestId -> وقت انتهاء فترة الانتظار
+let certCooldownTicker = null;
+
+function getCertCooldownRemaining(requestId){
+  const expiry = certSendCooldowns[requestId];
+  if(!expiry) return 0;
+  return Math.max(0, expiry - Date.now());
+}
+
+function startCertResendCooldown(requestId){
+  certSendCooldowns[requestId] = Date.now() + CERT_RESEND_COOLDOWN_MS;
+  if(certCooldownTicker) return;
+  certCooldownTicker = setInterval(() => {
+    const now = Date.now();
+    let anyExpired = false;
+    Object.keys(certSendCooldowns).forEach(id => {
+      const remain = certSendCooldowns[id] - now;
+      if(remain <= 0){
+        delete certSendCooldowns[id];
+        anyExpired = true;
+      } else {
+        const span = document.getElementById(`certCooldownSecs-${id}`);
+        if(span) span.textContent = Math.ceil(remain / 1000);
+      }
+    });
+    if(anyExpired) renderCertificateRequests();
+    if(!Object.keys(certSendCooldowns).length){
+      clearInterval(certCooldownTicker);
+      certCooldownTicker = null;
+    }
+  }, 1000);
+}
+
 function renderCertificateRequests(){
   const body = document.getElementById("certRequestsBody");
   const empty = document.getElementById("certRequestsEmpty");
@@ -1492,7 +1528,12 @@ function renderCertificateRequests(){
     return;
   }
   empty.style.display = "none";
-  body.innerHTML = certRequestsCache.map(r => `
+  body.innerHTML = certRequestsCache.map(r => {
+    const remain = getCertCooldownRemaining(r.id);
+    const sendCell = remain > 0
+      ? `<button class="ghost" disabled style="padding:6px 10px;font-size:12px;opacity:.55;cursor:not-allowed;">⏳ استنى <span id="certCooldownSecs-${r.id}">${Math.ceil(remain/1000)}</span> ث</button>`
+      : `<button class="ghost" style="padding:6px 10px;font-size:12px;" onclick="resendCertificateForRequest('${r.id}')">📤 ${r.telegramSent ? "ابعت تاني" : "ابعت"}</button>`;
+    return `
     <tr>
       <td>${escapeHtml(r.nameAr || "")}</td>
       <td>${escapeHtml(r.nameEn || "")}</td>
@@ -1502,16 +1543,15 @@ function renderCertificateRequests(){
         ? '<span style="color:var(--green-deep);font-weight:800;">جاهز ✓</span>'
         : '<span style="color:var(--red);font-weight:800;">حضور ناقص</span>'}</td>
       <td><button class="ghost" style="padding:6px 10px;font-size:12px;" onclick="previewCertificateForRequest('${r.id}')">👁️ معاينة</button></td>
-      <td>${r.telegramSent
-        ? '<span style="color:var(--green-deep);font-weight:700;">اتبعتت ✓</span>'
-        : `<button class="ghost" style="padding:6px 10px;font-size:12px;" onclick="resendCertificateForRequest('${r.id}')">📤 ابعت</button>`}</td>
-    </tr>
-  `).join("");
+      <td>${sendCell}${r.telegramSent ? '<div style="font-size:10.5px;color:var(--green-deep);margin-top:4px;">اتبعتت قبل كده ✓</div>' : ''}</td>
+    </tr>`;
+  }).join("");
 }
 
 async function resendCertificateForRequest(requestId){
   const msg = document.getElementById("certExportMsg");
   msg.className = "msg";
+  if(getCertCooldownRemaining(requestId) > 0) return;
   const req = certRequestsCache.find(r => r.id === requestId);
   if(!req) return;
 
@@ -1526,6 +1566,7 @@ async function resendCertificateForRequest(requestId){
     if(ok){
       await db.collection("certificateRequests").doc(requestId).update({ telegramSent: true });
       req.telegramSent = true;
+      startCertResendCooldown(requestId);
       renderCertificateRequests();
       showMsg(msg, "ok", `تم إرسال شهادة ${req.nameEn} ✓`);
     } else {
@@ -1542,7 +1583,7 @@ async function resendCertificateForRequest(requestId){
 async function resendAllPendingCertificates(){
   const msg = document.getElementById("certExportMsg");
   msg.className = "msg";
-  const pending = certRequestsCache.filter(r => r.eligible && !r.telegramSent);
+  const pending = certRequestsCache.filter(r => r.eligible && !r.telegramSent && getCertCooldownRemaining(r.id) === 0);
   if(!pending.length){ showMsg(msg, "err", "مفيش طلبات لسه محتاجة إرسال."); return; }
 
   try{
@@ -1558,6 +1599,7 @@ async function resendAllPendingCertificates(){
       if(ok){
         await db.collection("certificateRequests").doc(req.id).update({ telegramSent: true });
         req.telegramSent = true;
+        startCertResendCooldown(req.id);
         sentCount++;
       }
     }
