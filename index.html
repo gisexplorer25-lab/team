@@ -580,7 +580,7 @@
         <h3>كل طلبات الشهادات (<span id="certRequestsCount">0</span>)</h3>
         <div class="hint" style="margin:0 0 10px;">القائمة دي فيها كل اللي طلبوا شهادة، سواء كان حضورهم كفاية أو لسه ناقص. لو حد طلب أكتر من مرة لنفس البرنامج، بيتحدّث نفس الصف بدل ما يتكرر.</div>
         <table>
-          <thead><tr><th>الاسم بالعربي</th><th>الاسم بالإنجليزي</th><th>البرنامج</th><th>الحضور</th><th>الحالة</th><th>تليجرام</th></tr></thead>
+          <thead><tr><th>الاسم بالعربي</th><th>الاسم بالإنجليزي</th><th>البرنامج</th><th>الحضور</th><th>الحالة</th><th>معاينة</th><th>تليجرام</th></tr></thead>
           <tbody id="certRequestsBody"></tbody>
         </table>
         <div class="empty" id="certRequestsEmpty" style="display:none;">لسه مفيش طلبات شهادات.</div>
@@ -605,28 +605,32 @@
           <div class="row">
             <div>
               <label>الموضع الأفقي X (%)</label>
-              <input type="text" inputmode="decimal" id="certPosXInput" value="50">
+              <input type="text" inputmode="decimal" id="certPosXInput" value="50" oninput="debouncedPreviewCertPlacement()">
             </div>
             <div>
               <label>الموضع الرأسي Y (%)</label>
-              <input type="text" inputmode="decimal" id="certPosYInput" value="55">
+              <input type="text" inputmode="decimal" id="certPosYInput" value="55" oninput="debouncedPreviewCertPlacement()">
             </div>
           </div>
           <div class="row">
             <div>
               <label>حجم الخط (بكسل)</label>
-              <input type="text" inputmode="numeric" id="certFontSizeInput" value="48">
+              <input type="text" inputmode="numeric" id="certFontSizeInput" value="48" oninput="debouncedPreviewCertPlacement()">
             </div>
             <div>
               <label>لون الخط</label>
-              <input type="text" id="certFontColorInput" value="#20281f">
+              <input type="text" id="certFontColorInput" value="#20281f" oninput="debouncedPreviewCertPlacement()">
             </div>
           </div>
           <label>نوع الخط (Font)</label>
-          <input type="text" id="certFontFamilyInput" value="Cairo" placeholder="مثال: Cairo، أو Amiri، أو Great Vibes، أو Arial">
+          <input type="text" id="certFontFamilyInput" value="Cairo" placeholder="مثال: Cairo، أو Amiri، أو Great Vibes، أو Arial" oninput="debouncedPreviewCertPlacement()">
           <div class="hint" style="margin:6px 0 0;">اكتب اسم أي فونت من <a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a> بالظبط زي ما هو مكتوب هناك، وهيتحمّل تلقائي. أو اكتب اسم فونت عادي متثبت على أي جهاز زي Arial أو Times New Roman.</div>
           <button class="ghost" style="margin-top:12px;" onclick="previewCertPlacement()">👁️ معاينة الاسم على التصميم</button>
-          <div class="hint" style="margin:10px 0 6px;">📍 أو أسهل، دوس بس على المكان اللي عايز الاسم يتكتب فيه في الصورة تحت، وهيحدد X وY لوحده ويحدّث المعاينة.</div>
+          <div class="hint" style="margin:10px 0 6px;">📍 أو أسهل، دوس بس على المكان اللي عايز الاسم يتكتب فيه في الصورة تحت، وهيحدد X وY لوحده ويحدّث المعاينة. أي تعديل في الخانات فوق بيتحدّث في المعاينة تلقائي.</div>
+          <div id="certPreviewNameWrap" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;">
+            <span class="chip">🔎 معاينة باسم: <strong id="certPreviewNameLabel"></strong></span>
+            <button class="ghost" style="padding:4px 10px;font-size:11.5px;" onclick="clearCertPreviewOverride()">✖ رجوع للمعاينة الافتراضية</button>
+          </div>
           <div style="margin-top:6px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm);">
             <canvas id="certAdminPreviewCanvas" style="max-width:100%;display:block;cursor:crosshair;" onclick="onCertPreviewCanvasClick(event)"></canvas>
           </div>
@@ -1145,6 +1149,8 @@ async function enterCertificatesAdminPanel(){
   document.getElementById("telegramChatIdInput").value = TELEGRAM_CHAT_ID;
   document.getElementById("certTemplateUploadMsg").className = "msg";
   document.getElementById("certDesignConfigMsg").className = "msg";
+  certPreviewNameOverride = null;
+  document.getElementById("certPreviewNameWrap").style.display = "none";
   if(CERT_TEMPLATE_URL){
     document.getElementById("certTemplatePreviewWrap").style.display = "block";
     await previewCertPlacement();
@@ -1262,6 +1268,15 @@ function ensureGoogleFontLoaded(fontFamily){
   });
 }
 
+// لو حابب تعاين باسم طالب معيّن قبل ما تبعت شهادته فعليًا
+let certPreviewNameOverride = null;
+
+let certPreviewDebounceTimer = null;
+function debouncedPreviewCertPlacement(){
+  clearTimeout(certPreviewDebounceTimer);
+  certPreviewDebounceTimer = setTimeout(() => { previewCertPlacement(); }, 350);
+}
+
 async function previewCertPlacement(){
   if(!CERT_TEMPLATE_URL) return;
   try{
@@ -1280,6 +1295,7 @@ async function previewCertPlacement(){
     const fontSize = (parseFloat(document.getElementById("certFontSizeInput").value) || 48) * scale;
     const color = document.getElementById("certFontColorInput").value.trim() || "#20281f";
     const fontFamily = document.getElementById("certFontFamilyInput").value.trim() || "Cairo";
+    const previewName = certPreviewNameOverride || "Ahmed Mohamed";
 
     await ensureGoogleFontLoaded(fontFamily);
 
@@ -1290,7 +1306,7 @@ async function previewCertPlacement(){
     ctx.fillStyle = color;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("Ahmed Mohamed", x, y);
+    ctx.fillText(previewName, x, y);
   }catch(e){
     console.error(e);
   }
@@ -1307,6 +1323,29 @@ function onCertPreviewCanvasClick(evt){
   const yPct = Math.max(0, Math.min(100, (clickY / rect.height) * 100));
   document.getElementById("certPosXInput").value = xPct.toFixed(1);
   document.getElementById("certPosYInput").value = yPct.toFixed(1);
+  previewCertPlacement();
+}
+
+// معاينة الشهادة باسم طالب معيّن من قائمة الطلبات، قبل ما تبعتها فعليًا
+function previewCertificateForRequest(requestId){
+  const req = certRequestsCache.find(r => r.id === requestId);
+  if(!req) return;
+  if(!CERT_TEMPLATE_URL){
+    const msg = document.getElementById("certExportMsg");
+    msg.className = "msg";
+    showMsg(msg, "err", "لازم ترفع تصميم الشهادة الأول من الكارت اللي تحت.");
+    return;
+  }
+  certPreviewNameOverride = req.nameEn || req.nameAr || "";
+  document.getElementById("certPreviewNameLabel").textContent = certPreviewNameOverride;
+  document.getElementById("certPreviewNameWrap").style.display = "flex";
+  previewCertPlacement();
+  document.getElementById("certTemplatePreviewWrap").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function clearCertPreviewOverride(){
+  certPreviewNameOverride = null;
+  document.getElementById("certPreviewNameWrap").style.display = "none";
   previewCertPlacement();
 }
 
@@ -1434,6 +1473,7 @@ function renderCertificateRequests(){
       <td>${r.eligible
         ? '<span style="color:var(--green-deep);font-weight:800;">جاهز ✓</span>'
         : '<span style="color:var(--red);font-weight:800;">حضور ناقص</span>'}</td>
+      <td><button class="ghost" style="padding:6px 10px;font-size:12px;" onclick="previewCertificateForRequest('${r.id}')">👁️ معاينة</button></td>
       <td>${r.telegramSent
         ? '<span style="color:var(--green-deep);font-weight:700;">اتبعتت ✓</span>'
         : `<button class="ghost" style="padding:6px 10px;font-size:12px;" onclick="resendCertificateForRequest('${r.id}')">📤 ابعت</button>`}</td>
