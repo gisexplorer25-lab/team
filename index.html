@@ -622,7 +622,10 @@
               <input type="text" id="certFontColorInput" value="#20281f">
             </div>
           </div>
-          <button class="ghost" onclick="previewCertPlacement()">👁️ معاينة الاسم على التصميم</button>
+          <label>نوع الخط (Font)</label>
+          <input type="text" id="certFontFamilyInput" value="Cairo" placeholder="مثال: Cairo، أو Amiri، أو Great Vibes، أو Arial">
+          <div class="hint" style="margin:6px 0 0;">اكتب اسم أي فونت من <a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a> بالظبط زي ما هو مكتوب هناك، وهيتحمّل تلقائي. أو اكتب اسم فونت عادي متثبت على أي جهاز زي Arial أو Times New Roman.</div>
+          <button class="ghost" style="margin-top:12px;" onclick="previewCertPlacement()">👁️ معاينة الاسم على التصميم</button>
           <div style="margin-top:12px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm);">
             <canvas id="certAdminPreviewCanvas" style="max-width:100%;display:block;"></canvas>
           </div>
@@ -734,6 +737,7 @@ let CERT_POS_X_PCT = 50;
 let CERT_POS_Y_PCT = 55;
 let CERT_FONT_SIZE = 48;
 let CERT_FONT_COLOR = "#20281f";
+let CERT_FONT_FAMILY = "Cairo";
 let TELEGRAM_BOT_TOKEN = "8455420518:AAEiTzPKDwiTShu6jmo5SZEgpFHKCsRkqUs";
 let TELEGRAM_CHAT_ID = "5903280694";
 
@@ -760,6 +764,7 @@ async function ensureMasterConfig(){
       CERT_POS_Y_PCT = typeof data.certNameYPct === "number" ? data.certNameYPct : 55;
       CERT_FONT_SIZE = typeof data.certFontSize === "number" ? data.certFontSize : 48;
       CERT_FONT_COLOR = data.certFontColor || "#20281f";
+      CERT_FONT_FAMILY = data.certFontFamily || "Cairo";
       TELEGRAM_BOT_TOKEN = data.telegramBotToken || "8455420518:AAEiTzPKDwiTShu6jmo5SZEgpFHKCsRkqUs";
       TELEGRAM_CHAT_ID = data.telegramChatId || "5903280694";
     }
@@ -1134,6 +1139,7 @@ async function enterCertificatesAdminPanel(){
   document.getElementById("certPosYInput").value = CERT_POS_Y_PCT;
   document.getElementById("certFontSizeInput").value = CERT_FONT_SIZE;
   document.getElementById("certFontColorInput").value = CERT_FONT_COLOR;
+  document.getElementById("certFontFamilyInput").value = CERT_FONT_FAMILY;
   document.getElementById("telegramTokenInput").value = TELEGRAM_BOT_TOKEN;
   document.getElementById("telegramChatIdInput").value = TELEGRAM_CHAT_ID;
   document.getElementById("certTemplateUploadMsg").className = "msg";
@@ -1229,6 +1235,32 @@ function loadImageEl(src){
   });
 }
 
+// بيحمّل أي فونت من Google Fonts بالاسم ديناميكيًا لو مش محمّل أصلاً (Cairo محمّل من البداية).
+// لو الاسم مش لاقيه (فونت غلط أو فونت نظام عادي زي Arial)، بيتجاهل الموضوع بهدوء ويستخدم الفونت الافتراضي.
+const loadedGoogleFonts = new Set(["Cairo"]);
+function ensureGoogleFontLoaded(fontFamily){
+  const family = (fontFamily || "").trim();
+  if(!family || loadedGoogleFonts.has(family)){
+    return document.fonts && document.fonts.load
+      ? document.fonts.load(`700 40px "${family || "Cairo"}"`).catch(()=>{})
+      : Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g,"+")}:wght@400;700&display=swap`;
+    const finish = async () => {
+      loadedGoogleFonts.add(family);
+      try{ if(document.fonts && document.fonts.load) await document.fonts.load(`700 40px "${family}"`); }catch(e){}
+      resolve();
+    };
+    link.onload = finish;
+    link.onerror = () => resolve(); // فونت نظام عادي أو اسم غلط — نكمل بهدوء بالفونت الافتراضي
+    document.head.appendChild(link);
+    setTimeout(resolve, 2500); // مهلة أمان عشان الواجهة متعلقش لو الشبكة بطيئة
+  });
+}
+
 async function previewCertPlacement(){
   if(!CERT_TEMPLATE_URL) return;
   try{
@@ -1246,11 +1278,14 @@ async function previewCertPlacement(){
     const yPct = parseFloat(document.getElementById("certPosYInput").value) || 50;
     const fontSize = (parseFloat(document.getElementById("certFontSizeInput").value) || 48) * scale;
     const color = document.getElementById("certFontColorInput").value.trim() || "#20281f";
+    const fontFamily = document.getElementById("certFontFamilyInput").value.trim() || "Cairo";
+
+    await ensureGoogleFontLoaded(fontFamily);
 
     const x = (xPct / 100) * canvas.width;
     const y = (yPct / 100) * canvas.height;
 
-    ctx.font = `700 ${fontSize}px 'Cairo', sans-serif`;
+    ctx.font = `700 ${fontSize}px "${fontFamily}", 'Cairo', sans-serif`;
     ctx.fillStyle = color;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -1267,6 +1302,7 @@ async function saveCertificateDesignConfig(){
   const yPct = parseFloat(document.getElementById("certPosYInput").value);
   const fontSize = parseFloat(document.getElementById("certFontSizeInput").value);
   const color = document.getElementById("certFontColorInput").value.trim() || "#20281f";
+  const fontFamily = document.getElementById("certFontFamilyInput").value.trim() || "Cairo";
   const botToken = document.getElementById("telegramTokenInput").value.trim();
   const chatId = document.getElementById("telegramChatIdInput").value.trim();
 
@@ -1277,6 +1313,7 @@ async function saveCertificateDesignConfig(){
       certNameYPct: isNaN(yPct) ? 55 : yPct,
       certFontSize: isNaN(fontSize) ? 48 : fontSize,
       certFontColor: color,
+      certFontFamily: fontFamily,
       telegramBotToken: botToken,
       telegramChatId: chatId
     }, { merge: true });
@@ -1284,6 +1321,7 @@ async function saveCertificateDesignConfig(){
     CERT_POS_Y_PCT = isNaN(yPct) ? 55 : yPct;
     CERT_FONT_SIZE = isNaN(fontSize) ? 48 : fontSize;
     CERT_FONT_COLOR = color;
+    CERT_FONT_FAMILY = fontFamily;
     TELEGRAM_BOT_TOKEN = botToken;
     TELEGRAM_CHAT_ID = chatId;
     showMsg(msg, "ok", "تم حفظ الإعدادات بنجاح ✓");
@@ -1298,6 +1336,7 @@ async function saveCertificateDesignConfig(){
 /* ---------- توليد صورة الشهادة بالاسم، وإرسالها على تليجرام ---------- */
 async function generateCertificateBlob(nameEn){
   if(!CERT_TEMPLATE_URL) return null;
+  await ensureGoogleFontLoaded(CERT_FONT_FAMILY);
   const img = await loadImageEl(CERT_TEMPLATE_URL);
   const canvas = document.getElementById("certGenCanvas");
   canvas.width = img.width;
@@ -1308,7 +1347,7 @@ async function generateCertificateBlob(nameEn){
 
   const x = (CERT_POS_X_PCT / 100) * canvas.width;
   const y = (CERT_POS_Y_PCT / 100) * canvas.height;
-  ctx.font = `700 ${CERT_FONT_SIZE}px 'Cairo', sans-serif`;
+  ctx.font = `700 ${CERT_FONT_SIZE}px "${CERT_FONT_FAMILY}", 'Cairo', sans-serif`;
   ctx.fillStyle = CERT_FONT_COLOR;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
