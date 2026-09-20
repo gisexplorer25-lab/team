@@ -589,7 +589,21 @@
         <div class="row">
           <button class="primary" style="flex:0 0 auto;" onclick="adminExportCertificatesExcel()">📊 تحميل Excel بالأسماء</button>
           <button class="ghost" style="flex:0 0 auto;" onclick="resendAllPendingCertificates()">📤 ابعت كل اللي لسه متبعتش على تليجرام</button>
+          <button class="primary" id="certBulkSendBtn" style="flex:0 0 auto;" onclick="resendAllCertificatesBulk()">🔁 ابعت كل الشهادات مرة واحدة (حتى اللي اتبعتت قبل كده)</button>
         </div>
+
+        <div id="certBulkProgress" style="display:none;margin-top:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13.5px;font-weight:800;margin-bottom:6px;">
+            <span id="certBulkProgressLabel">0 / 0 شهادة</span>
+            <span id="certBulkProgressPct">0%</span>
+          </div>
+          <div style="height:16px;background:var(--paper-2);border:1px solid var(--line-strong);border-radius:999px;overflow:hidden;">
+            <div id="certBulkProgressBar" style="height:100%;width:0%;background:var(--green);border-radius:999px;transition:width .35s ease;"></div>
+          </div>
+          <div class="hint" id="certBulkProgressCurrent"></div>
+          <button class="danger" id="certBulkStopBtn" style="display:none;margin-top:10px;padding:7px 14px;font-size:13px;" onclick="stopCertificatesBulk()">⏹ إيقاف الإرسال</button>
+        </div>
+
         <div class="msg" id="certExportMsg"></div>
       </div>
 
@@ -1439,11 +1453,22 @@ async function sendCertificateToTelegram(nameEn, teamName){
         formData.append("chat_id", chatId);
         formData.append("caption", `🎓 شهادة جديدة\nالاسم: ${nameEn}\nالبرنامج: ${teamName}`);
         formData.append("document", blob, "certificate.png");
-        const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
-          method: "POST",
-          body: formData
-        });
-        return res.ok;
+        // لو تليجرام رجّع 429 (ضغط كبير)، بنستنى المدة اللي طلبها ونحاول تاني (لحد 3 مرات)
+        for(let attempt = 0; attempt < 3; attempt++){
+          const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
+            method: "POST",
+            body: formData
+          });
+          if(res.ok) return true;
+          if(res.status !== 429) return false;
+          let waitSecs = 5;
+          try{
+            const j = await res.json();
+            waitSecs = (j && j.parameters && j.parameters.retry_after) || 5;
+          }catch(_){}
+          await sleep((waitSecs + 1) * 1000);
+        }
+        return false;
       }catch(err){
         console.error("sendCertificateToTelegram: failed for chat", chatId, err);
         return false;
@@ -1608,6 +1633,114 @@ async function resendAllPendingCertificates(){
     showMsg(msg, "err", "حصل خطأ أثناء الإرسال الجماعي، حاول تاني.");
   }finally{
     hideLoading();
+  }
+}
+
+function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
+/* ---------- إرسال كل الشهادات مرة واحدة (حتى اللي اتبعتت قبل كده) مع شريط تقدّم ---------- */
+const CERT_BULK_DELAY_MS = 2500; // فاصل بين كل شهادة والتانية عشان تليجرام ميحظرش الإرسال (حد الجروبات ~20 رسالة في الدقيقة)
+let certBulkRunning = false;
+let certBulkStopRequested = false;
+
+function stopCertificatesBulk(){
+  certBulkStopRequested = true;
+  const stopBtn = document.getElementById("certBulkStopBtn");
+  stopBtn.disabled = true;
+  stopBtn.textContent = "⏳ بيوقف بعد الشهادة الحالية...";
+}
+
+async function resendAllCertificatesBulk(){
+  if(certBulkRunning) return;
+  const msg = document.getElementById("certExportMsg");
+  msg.className = "msg";
+
+  // بنبعت بس الطلبات المؤهلة (حضورها كفاية)
+  const list = certRequestsCache.filter(r => r.eligible);
+  if(!list.length){ showMsg(msg, "err", "مفيش شهادات جاهزة للإرسال."); return; }
+
+  const alreadySent = list.filter(r => r.telegramSent).length;
+  const confirmText = `هتبعت ${list.length} شهادة على تليجرام واحدة ورا التانية` +
+    (alreadySent ? ` (منهم ${alreadySent} اتبعتوا قبل كده وهيتبعتوا تاني)` : "") + `.\nمتأكد؟`;
+  if(!confirm(confirmText)) return;
+
+  const btn = document.getElementById("certBulkSendBtn");
+  const wrap = document.getElementById("certBulkProgress");
+  const bar = document.getElementById("certBulkProgressBar");
+  const label = document.getElementById("certBulkProgressLabel");
+  const pct = document.getElementById("certBulkProgressPct");
+  const cur = document.getElementById("certBulkProgressCurrent");
+  const stopBtn = document.getElementById("certBulkStopBtn");
+  const total = list.length;
+
+  const setProgress = (done) => {
+    const p = Math.round((done / total) * 100);
+    bar.style.width = p + "%";
+    label.textContent = `${done} / ${total} شهادة`;
+    pct.textContent = p + "%";
+  };
+
+  certBulkRunning = true;
+  certBulkStopRequested = false;
+  btn.disabled = true;
+  stopBtn.disabled = false;
+  stopBtn.textContent = "⏹ إيقاف الإرسال";
+  stopBtn.style.display = "inline-block";
+  bar.style.background = "var(--green)";
+  wrap.style.display = "block";
+  setProgress(0);
+  cur.textContent = "بيجهّز الإعدادات...";
+
+  try{
+    await ensureMasterConfig();
+    if(!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || !CERT_TEMPLATE_URL){
+      wrap.style.display = "none";
+      showMsg(msg, "err", "لازم ترفع تصميم الشهادة وتحفظ بيانات بوت تليجرام الأول.");
+      return;
+    }
+
+    let processed = 0, sentCount = 0;
+    const failed = [];
+    for(const req of list){
+      if(certBulkStopRequested) break;
+      cur.textContent = `جاري إرسال: ${req.nameEn || req.nameAr || ""}`;
+      const ok = await sendCertificateToTelegram(req.nameEn, req.teamName);
+      if(ok){
+        sentCount++;
+        if(!req.telegramSent){
+          try{
+            await db.collection("certificateRequests").doc(req.id).update({ telegramSent: true });
+            req.telegramSent = true;
+          }catch(e){ console.error("bulk: failed to mark as sent", e); }
+        }
+        startCertResendCooldown(req.id);
+      } else {
+        failed.push(req.nameEn || req.nameAr || req.id);
+      }
+      processed++;
+      setProgress(processed); // الشريط بيزيد شهادة واحدة مع كل شهادة بتخلص
+      if(processed < total && !certBulkStopRequested) await sleep(CERT_BULK_DELAY_MS);
+    }
+
+    renderCertificateRequests();
+    if(certBulkStopRequested && processed < total){
+      cur.textContent = "";
+      showMsg(msg, "info", `الإرسال اتوقف — اتبعت ${sentCount} من ${total} شهادة.` + (failed.length ? ` فشل: ${failed.join("، ")}` : ""));
+    } else if(failed.length){
+      bar.style.background = "var(--amber)";
+      cur.textContent = "";
+      showMsg(msg, "info", `تم إرسال ${sentCount} من ${total} شهادة. فشل إرسال: ${failed.join("، ")} — جرّب تبعتهم تاني من الجدول.`);
+    } else {
+      cur.textContent = "خلصت كل الشهادات ✓";
+      showMsg(msg, "ok", `تم إرسال ${sentCount} من ${total} شهادة ✓`);
+    }
+  }catch(e){
+    console.error(e);
+    showMsg(msg, "err", "حصل خطأ أثناء الإرسال الجماعي، حاول تاني.");
+  }finally{
+    certBulkRunning = false;
+    btn.disabled = false;
+    stopBtn.style.display = "none";
   }
 }
 
